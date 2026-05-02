@@ -1,0 +1,3142 @@
+:root {
+  --bg: #eef3f8;
+  --panel: #ffffff;
+  --ink: #0f172a;
+  --muted: #64748b;
+  --line: #dbe4ee;
+  --primary: #16a34a;
+  --primary-dark: #15803d;
+  --nav: #111827;
+  --soft: #f8fafc;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-weight: 700;
+}
+
+button, input, select, textarea {
+  font: inherit;
+}
+
+button, a {
+  cursor: pointer;
+}
+
+.topbar {
+  height: 72px;
+  background: var(--nav);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 28px;
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  box-shadow: 0 10px 30px rgba(15,23,42,.14);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: white;
+  text-decoration: none;
+}
+
+.brand-mark {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  border-radius: 14px;
+  background: white;
+  color: var(--nav);
+  font-weight: 900;
+}
+
+.brand strong { display: block; font-size: 18px; }
+.brand span { display: block; font-size: 12px; opacity: .8; }
+
+.nav {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.nav a, .nav button {
+  color: white;
+  text-decoration: none;
+  background: rgba(255,255,255,.08);
+  border: 1px solid rgba(255,255,255,.14);
+  border-radius: 999px;
+  padding: 11px 16px;
+}
+
+.nav-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.app-shell {
+  width: min(1440px, calc(100% - 32px));
+  margin: 18px auto 60px;
+}
+
+.boot-screen {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  font-size: 24px;
+}
+
+.hero {
+  background: radial-gradient(circle at 80% 50%, rgba(148,163,184,.2), transparent 22%), linear-gradient(135deg, #172033, #243446);
+  color: white;
+  border-radius: 28px;
+  padding: 36px 42px;
+  box-shadow: 0 18px 40px rgba(15,23,42,.14);
+}
+
+.hero.compact h1 {
+  font-size: clamp(18px, 2vw, 28px);
+  max-width: none;
+  white-space: normal;
+  margin: 0 0 18px;
+}
+
+.search-row {
+  display: flex;
+  gap: 12px;
+  max-width: 1240px;
+  background: rgba(255,255,255,.12);
+  border: 1px solid rgba(255,255,255,.2);
+  padding: 8px;
+  border-radius: 20px;
+}
+
+.search-row input {
+  flex: 1;
+  border: 0;
+  border-radius: 14px;
+  padding: 16px 18px;
+}
+
+.chips {
+  margin-top: 16px;
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.chips span {
+  border: 1px solid rgba(255,255,255,.18);
+  border-radius: 999px;
+  padding: 8px 12px;
+  background: rgba(255,255,255,.09);
+  font-size: 13px;
+}
+
+.filter-panel, .panel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  padding: 22px;
+  margin-top: 18px;
+  box-shadow: 0 12px 30px rgba(15,23,42,.06);
+}
+
+.filter-panel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.filter-panel h2, .section-title h2, .panel h1 {
+  margin: 0;
+}
+
+.filter-panel p, .section-title p, .panel p {
+  color: var(--muted);
+  margin: 4px 0 0;
+}
+
+.section-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: 24px 0 16px;
+}
+
+.product-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));
+  gap: 18px;
+}
+
+.product-card {
+  border-radius: 24px;
+  background: white;
+  border: 1px solid var(--line);
+  overflow: hidden;
+  box-shadow: 0 12px 28px rgba(15,23,42,.07);
+}
+
+.card-image {
+  position: relative;
+  display: block;
+  border: 0;
+  background: #e2e8f0;
+  padding: 0;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  overflow: hidden;
+}
+
+.card-image img, .modal-gallery > img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.card-badges {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.card-badges span, .badges span {
+  background: #111827;
+  color: white;
+  border-radius: 999px;
+  padding: 8px 10px;
+  font-size: 12px;
+}
+
+.card-badges span:last-child, .badges span:nth-child(2) {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.card-content {
+  padding: 18px;
+}
+
+.card-content h3 {
+  margin: 0;
+  font-size: 17px;
+  line-height: 1.2;
+}
+
+.card-content p {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.card-content strong, .price {
+  display: block;
+  font-size: 24px;
+  margin: 12px 0;
+}
+
+.mini-specs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin: 12px 0;
+}
+
+.mini-specs span {
+  background: var(--soft);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 10px;
+  font-size: 13px;
+}
+
+.btn-primary, .btn-secondary, button {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 12px 16px;
+  background: white;
+}
+
+.btn-primary {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: white;
+}
+
+.btn-primary:hover { background: var(--primary-dark); }
+.btn-secondary { background: white; color: var(--ink); }
+.full { width: 100%; }
+
+.auth-wrap {
+  display: grid;
+  place-items: center;
+  min-height: calc(100vh - 130px);
+}
+
+.auth-card {
+  width: min(460px, 100%);
+  background: white;
+  border: 1px solid var(--line);
+  border-radius: 28px;
+  padding: 28px;
+  box-shadow: 0 20px 50px rgba(15,23,42,.12);
+}
+
+.auth-card input, .auth-card select, .auth-card textarea, select, input {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 13px 14px;
+  margin: 6px 0 14px;
+  background: white;
+}
+
+.auth-card label, label {
+  display: block;
+  color: var(--muted);
+  font-size: 13px;
+  margin-top: 8px;
+}
+
+.message {
+  margin-top: 14px;
+  padding: 12px;
+  border-radius: 14px;
+  background: #ecfdf5;
+  color: #166534;
+}
+
+.link-button {
+  border: 0;
+  background: transparent;
+  color: #2563eb;
+  padding-left: 0;
+}
+
+.error-box {
+  border: 1px solid #fecaca;
+  background: #fff1f2;
+  color: #991b1b;
+  border-radius: 16px;
+  padding: 14px;
+  margin: 14px 0;
+}
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15,23,42,.55);
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+
+.product-modal {
+  width: min(1120px, 100%);
+  max-height: 92vh;
+  overflow: auto;
+  background: white;
+  border-radius: 32px;
+  display: grid;
+  grid-template-columns: minmax(320px, 1fr) minmax(360px, 1fr);
+  position: relative;
+}
+
+.modal-close {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  border-radius: 999px;
+  z-index: 4;
+  width: 42px;
+  height: 42px;
+  padding: 0;
+}
+
+.modal-gallery {
+  position: relative;
+  background: #e7edf5;
+  padding: 22px;
+  min-height: 560px;
+}
+
+.modal-gallery > img {
+  border-radius: 24px;
+  min-height: 520px;
+}
+
+.gallery-arrow {
+  position: absolute;
+  top: 45%;
+  width: 44px;
+  height: 44px;
+  border-radius: 999px;
+  background: rgba(15,23,42,.7);
+  color: white;
+  border: 0;
+  font-size: 28px;
+  padding: 0;
+}
+
+.gallery-arrow.left { left: 34px; }
+.gallery-arrow.right { right: 34px; }
+
+.thumb-row {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  padding-top: 12px;
+}
+
+.thumb {
+  width: 64px;
+  height: 64px;
+  padding: 0;
+  border-radius: 14px;
+  overflow: hidden;
+  border: 2px solid transparent;
+}
+
+.thumb.active { border-color: var(--primary); }
+.thumb img { width: 100%; height: 100%; object-fit: cover; }
+
+.modal-info {
+  padding: 34px;
+}
+
+.badges {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.modal-info h2 {
+  font-size: clamp(26px, 3vw, 38px);
+  line-height: 1.05;
+  margin: 18px 0 8px;
+}
+
+.modal-info p {
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.spec-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin: 18px 0;
+}
+
+.spec-grid div {
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--soft);
+  padding: 14px;
+}
+
+.spec-grid small {
+  display: block;
+  color: #94a3b8;
+  text-transform: uppercase;
+  font-size: 11px;
+}
+
+.spec-grid strong {
+  display: block;
+  margin-top: 4px;
+}
+
+.color-pills {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 8px 0 16px;
+}
+
+.color-pills button.active {
+  border-color: var(--primary);
+  color: var(--primary-dark);
+  background: #ecfdf5;
+}
+
+.modal-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.metric-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 14px;
+}
+
+.metric-card {
+  background: var(--soft);
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  padding: 18px;
+}
+
+.metric-card span {
+  color: var(--muted);
+}
+
+.metric-card strong {
+  display: block;
+  font-size: 34px;
+  margin-top: 8px;
+}
+
+.quick-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 18px;
+}
+
+.quick-actions a {
+  text-decoration: none;
+  background: var(--nav);
+  color: white;
+  padding: 12px 16px;
+  border-radius: 14px;
+}
+
+.tabs {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.tabs button.active {
+  background: var(--nav);
+  color: white;
+}
+
+.table-wrap {
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 860px;
+}
+
+th, td {
+  padding: 13px 14px;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  vertical-align: top;
+}
+
+th {
+  background: #eef4fb;
+  position: sticky;
+  top: 0;
+}
+
+.matrix {
+  display: grid;
+  gap: 16px;
+}
+
+.matrix-item {
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  overflow: hidden;
+}
+
+.matrix-parent {
+  display: grid;
+  grid-template-columns: 44px 2fr 1fr 90px 90px 100px;
+  gap: 12px;
+  align-items: center;
+  padding: 14px;
+  background: var(--soft);
+}
+
+.empty-state {
+  text-align: center;
+  padding: 40px;
+  color: var(--muted);
+}
+
+.floating-cart {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  width: 54px;
+  height: 54px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--primary);
+  color: white;
+  box-shadow: 0 16px 40px rgba(22,163,74,.35);
+}
+
+@media (max-width: 900px) {
+  .topbar {
+    height: auto;
+    padding: 14px;
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .nav { overflow-x: auto; width: 100%; padding-bottom: 4px; }
+
+  .filter-panel, .section-title {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .search-row {
+    flex-direction: column;
+  }
+
+  .product-modal {
+    grid-template-columns: 1fr;
+  }
+
+  .modal-gallery {
+    min-height: auto;
+  }
+
+  .modal-gallery > img {
+    min-height: 360px;
+  }
+
+  .spec-grid, .modal-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .matrix-parent {
+    grid-template-columns: 44px 1fr;
+  }
+}
+
+/* ============================================================
+   UrbaNoiD Phase 2C Product CRUD CSS
+   Append ke bagian akhir src/styles.css
+   ============================================================ */
+
+.product-crud-panel {
+  max-width: none;
+}
+
+.toolbar-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.matrix-parent-crud {
+  grid-template-columns: 44px minmax(260px, 2fr) repeat(8, minmax(120px, 1fr)) 140px;
+  align-items: stretch;
+  overflow-x: auto;
+}
+
+.matrix-parent-crud > div {
+  min-width: 110px;
+}
+
+.parent-main small,
+.matrix-parent-crud small {
+  display: block;
+  color: #64748b;
+  font-size: 11px;
+  margin-top: 4px;
+}
+
+.matrix-parent-crud span {
+  display: block;
+  margin-top: 4px;
+}
+
+.collapse-button {
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  padding: 0;
+  align-self: center;
+}
+
+.status-pill {
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  width: fit-content;
+  border-radius: 999px;
+  padding: 7px 10px;
+  background: #f1f5f9;
+  color: #475569;
+  font-size: 12px;
+}
+
+.status-pill.active {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.action-stack {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.action-stack button {
+  padding: 9px 10px;
+  border-radius: 12px;
+}
+
+button.danger {
+  color: #b91c1c;
+  border-color: #fecaca;
+  background: #fff1f2;
+}
+
+.variant-zone {
+  padding: 18px;
+  border-top: 1px solid var(--line);
+}
+
+.variant-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.variant-head h3 {
+  margin: 0;
+}
+
+.variant-head p {
+  margin: 4px 0 0;
+  color: var(--muted);
+}
+
+.variant-table-wrap {
+  max-height: 540px;
+  overflow: auto;
+}
+
+.variant-table {
+  min-width: 1320px;
+}
+
+.variant-table th {
+  top: 0;
+  z-index: 2;
+}
+
+.photo-cell {
+  width: 120px;
+  min-width: 120px;
+  text-align: center;
+}
+
+.photo-cell img,
+.photo-placeholder {
+  width: 58px;
+  height: 74px;
+  border-radius: 12px;
+  object-fit: cover;
+  background: #e2e8f0;
+  display: grid;
+  place-items: center;
+  margin: 0 auto 6px;
+  color: #64748b;
+  font-size: 11px;
+}
+
+.upload-mini {
+  display: inline-flex;
+  justify-content: center;
+  color: #2563eb;
+  margin: 0;
+  font-size: 12px;
+}
+
+.upload-mini input {
+  display: none;
+}
+
+.crud-modal {
+  width: min(980px, calc(100vw - 32px));
+  max-height: 92vh;
+  overflow: auto;
+  background: white;
+  border-radius: 28px;
+  padding: 24px;
+  box-shadow: 0 30px 80px rgba(15,23,42,.22);
+}
+
+.modal-title-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 18px;
+}
+
+.modal-title-row h2 {
+  margin: 0;
+}
+
+.modal-title-row p {
+  margin: 5px 0 0;
+  color: var(--muted);
+}
+
+.modal-title-row > button {
+  width: 42px;
+  height: 42px;
+  border-radius: 999px;
+  padding: 0;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(220px, 1fr));
+  gap: 12px 16px;
+}
+
+.form-grid label {
+  margin: 0;
+}
+
+.form-grid .wide {
+  grid-column: 1 / -1;
+}
+
+.form-grid textarea {
+  width: 100%;
+  resize: vertical;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 13px 14px;
+  margin: 6px 0 14px;
+  background: white;
+}
+
+@media (max-width: 1100px) {
+  .matrix-parent-crud {
+    grid-template-columns: 44px minmax(260px, 1fr);
+  }
+
+  .variant-head {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ============================================================
+   Phase 2C Fix Final: Scrollable CRUD Modal
+   Fokus: modal tambah/edit produk dan varian seller tidak bentrok
+   dengan modal detail produk buyer.
+   ============================================================ */
+
+.crud-modal-backdrop {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 9999 !important;
+  background: rgba(15, 23, 42, 0.55) !important;
+  display: flex !important;
+  justify-content: center !important;
+  align-items: flex-start !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  padding: 32px 16px !important;
+  box-sizing: border-box !important;
+}
+
+.crud-modal {
+  width: min(960px, 100%) !important;
+  max-width: 960px !important;
+  max-height: calc(100vh - 64px) !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  background: #ffffff !important;
+  border-radius: 24px !important;
+  padding: 24px !important;
+  box-shadow: 0 30px 80px rgba(15, 23, 42, 0.25) !important;
+  position: relative !important;
+  margin: 0 auto !important;
+}
+
+.crud-modal .modal-title-row {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: #ffffff;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 12px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.crud-modal .modal-title-row h2 {
+  margin: 0;
+  font-size: 28px;
+  line-height: 1.2;
+  color: #0f172a;
+}
+
+.crud-modal .modal-title-row p {
+  margin: 6px 0 0;
+  color: #64748b;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.crud-modal .modal-title-row > button {
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  border: 1px solid #cbd5e1;
+  border-radius: 14px;
+  background: #ffffff;
+  color: #0f172a;
+  font-size: 24px;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 0;
+}
+
+.crud-modal .form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(220px, 1fr));
+  gap: 14px 18px;
+  align-items: start;
+}
+
+.crud-modal .form-grid label {
+  display: flex;
+  flex-direction: column;
+  font-weight: 700;
+  color: #334155;
+  font-size: 14px;
+  margin: 0;
+}
+
+.crud-modal .form-grid .wide {
+  grid-column: 1 / -1;
+}
+
+.crud-modal .form-grid input,
+.crud-modal .form-grid select,
+.crud-modal .form-grid textarea {
+  width: 100%;
+  box-sizing: border-box;
+  margin-top: 6px;
+  border: 1px solid #cbd5e1;
+  border-radius: 14px;
+  background: #ffffff;
+  color: #0f172a;
+  padding: 12px 14px;
+  font-size: 14px;
+  min-height: 48px;
+}
+
+.crud-modal .form-grid textarea {
+  min-height: 120px;
+  resize: vertical;
+}
+
+.crud-modal-actions {
+  position: sticky;
+  bottom: 0;
+  z-index: 5;
+  background: #ffffff;
+  display: flex !important;
+  grid-template-columns: none !important;
+  justify-content: flex-end;
+  gap: 10px;
+  padding-top: 16px;
+  margin-top: 18px;
+  border-top: 1px solid #e2e8f0;
+}
+
+.crud-modal-actions .btn-primary,
+.crud-modal-actions .btn-secondary,
+.crud-modal-actions button {
+  min-height: 46px;
+  padding: 0 18px;
+  border-radius: 14px;
+}
+
+@media (max-width: 900px) {
+  .crud-modal-backdrop {
+    padding: 16px 10px !important;
+  }
+
+  .crud-modal {
+    width: 100% !important;
+    max-height: calc(100vh - 32px) !important;
+    border-radius: 18px !important;
+    padding: 18px !important;
+  }
+
+  .crud-modal .form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .crud-modal .modal-title-row h2 {
+    font-size: 22px;
+  }
+
+  .crud-modal-actions {
+    flex-direction: column;
+  }
+
+  .crud-modal-actions button {
+    width: 100%;
+  }
+}
+
+/* ============================================================
+   Phase 2C Fix v2: Front Toast + Auto SKU Helper
+   ============================================================ */
+
+.toast-stack {
+  position: fixed;
+  top: 88px;
+  right: 20px;
+  z-index: 20000;
+  width: min(520px, calc(100vw - 32px));
+  pointer-events: none;
+}
+
+.toast-card {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  border-radius: 18px;
+  padding: 16px;
+  box-shadow: 0 22px 60px rgba(15, 23, 42, 0.22);
+  pointer-events: auto;
+}
+
+.toast-card strong {
+  display: block;
+  margin-bottom: 4px;
+}
+
+.toast-card p {
+  margin: 0;
+  line-height: 1.45;
+}
+
+.toast-card button {
+  width: 34px;
+  height: 34px;
+  min-width: 34px;
+  border-radius: 999px;
+  padding: 0;
+  font-size: 20px;
+  line-height: 1;
+}
+
+.toast-error {
+  background: #fff1f2;
+  color: #991b1b;
+  border: 1px solid #fecaca;
+}
+
+.toast-success {
+  background: #ecfdf5;
+  color: #166534;
+  border: 1px solid #bbf7d0;
+}
+
+.readonly-input {
+  background: #f8fafc !important;
+  color: #334155 !important;
+}
+
+.field-help {
+  color: #64748b;
+  font-size: 12px;
+  line-height: 1.35;
+  margin-top: -8px;
+  margin-bottom: 8px;
+}
+
+/* ============================================================
+   Phase 2C Fix v2.3: Edit + Hapus Produk/Varian
+   ============================================================ */
+
+.solid-danger {
+  background: #b91c1c !important;
+  color: #ffffff !important;
+  border-color: #b91c1c !important;
+}
+
+.solid-danger:hover {
+  background: #991b1b !important;
+  border-color: #991b1b !important;
+}
+
+.variant-table .action-stack {
+  min-width: 170px;
+}
+
+.variant-table .action-stack button {
+  min-width: 84px;
+  text-align: center;
+}
+
+.matrix-parent-crud .action-stack {
+  min-width: 150px;
+}
+
+/* ============================================================
+   Phase 2C Fix v2.4: Foto per Warna, bukan per Ukuran
+   ============================================================ */
+
+.merged-photo-cell,
+.merged-color-cell {
+  vertical-align: middle !important;
+  background: #ffffff;
+}
+
+.merged-photo-cell {
+  border-right: 1px solid #dbe4ee;
+}
+
+.merged-color-cell {
+  border-right: 1px solid #dbe4ee;
+  min-width: 120px;
+}
+
+.shared-photo-note {
+  display: block;
+  margin-top: 6px;
+  color: #64748b;
+  font-size: 11px;
+  line-height: 1.25;
+}
+
+.photo-cell small {
+  display: block;
+}
+
+.variant-table td {
+  vertical-align: middle;
+}
+
+/* ============================================================
+   Phase 2C Fix v2.5: Media per Warna + Buyer Modal Compact
+   ============================================================ */
+
+.merged-photo-cell,
+.merged-color-cell {
+  vertical-align: middle !important;
+  background: #ffffff;
+}
+
+.merged-photo-cell {
+  border-right: 1px solid #dbe4ee;
+  min-width: 124px;
+}
+
+.merged-color-cell {
+  border-right: 1px solid #dbe4ee;
+  min-width: 110px;
+}
+
+.shared-photo-note {
+  display: block;
+  margin-top: 6px;
+  color: #64748b;
+  font-size: 11px;
+  line-height: 1.25;
+}
+
+.photo-cell small {
+  display: block;
+}
+
+.video-upload-mini {
+  margin-top: 8px;
+  color: #7c3aed;
+}
+
+.video-link {
+  display: inline-block;
+  margin-top: 4px;
+  color: #2563eb;
+  font-size: 12px;
+  text-decoration: none;
+}
+
+.video-link:hover {
+  text-decoration: underline;
+}
+
+.variant-table td {
+  vertical-align: middle;
+}
+
+.buyer-modal-backdrop {
+  z-index: 9998;
+  padding: 18px;
+  place-items: center;
+}
+
+.buyer-product-modal {
+  width: min(980px, 96vw);
+  max-height: 92vh;
+  border-radius: 24px;
+  grid-template-columns: minmax(320px, 0.95fr) minmax(340px, 1fr);
+  overflow: hidden;
+}
+
+.buyer-modal-gallery {
+  padding: 16px;
+  min-height: unset;
+}
+
+.buyer-modal-gallery > img {
+  height: min(70vh, 620px);
+  min-height: 420px;
+  border-radius: 20px;
+}
+
+.buyer-modal-info {
+  padding: 24px;
+  overflow-y: auto;
+  max-height: 92vh;
+}
+
+.buyer-modal-info .badges span {
+  font-size: 11px;
+  padding: 6px 9px;
+}
+
+.buyer-modal-info h2 {
+  font-size: clamp(22px, 2.2vw, 30px);
+  line-height: 1.08;
+  margin: 14px 0 6px;
+}
+
+.buyer-modal-info .price {
+  font-size: 26px;
+  margin: 8px 0 10px;
+}
+
+.description-block {
+  white-space: pre-line;
+  color: #475569;
+  font-size: 13.5px;
+  line-height: 1.55;
+  margin: 10px 0 14px;
+  font-weight: 600;
+}
+
+.buyer-spec-grid {
+  gap: 10px;
+  margin: 14px 0;
+}
+
+.buyer-spec-grid div {
+  padding: 12px;
+  border-radius: 15px;
+}
+
+.buyer-spec-grid small {
+  font-size: 10.5px;
+}
+
+.buyer-spec-grid strong {
+  font-size: 13px;
+  line-height: 1.25;
+}
+
+.buyer-modal-actions {
+  gap: 8px;
+}
+
+.buyer-modal-actions button {
+  padding: 12px 10px;
+  font-size: 13px;
+}
+
+.buyer-product-modal select,
+.buyer-product-modal input {
+  margin-bottom: 10px;
+}
+
+@media (max-width: 900px) {
+  .buyer-product-modal {
+    grid-template-columns: 1fr;
+    overflow-y: auto;
+  }
+
+  .buyer-modal-gallery > img {
+    height: auto;
+    min-height: 320px;
+    max-height: 58vh;
+  }
+
+  .buyer-modal-info {
+    max-height: none;
+  }
+}
+
+/* ============================================================
+   Phase 2C Fix v2.6: Hapus Foto/Video per Warna
+   ============================================================ */
+
+.color-photo-manager {
+  margin-top: 8px;
+}
+
+.color-photo-thumbs {
+  display: grid;
+  grid-template-columns: repeat(2, 42px);
+  gap: 6px;
+  justify-content: center;
+  margin: 6px auto;
+}
+
+.color-photo-thumb {
+  position: relative;
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid #dbe4ee;
+  background: #f8fafc;
+}
+
+.color-photo-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.photo-delete-button {
+  position: absolute;
+  top: -7px;
+  right: -7px;
+  width: 20px !important;
+  height: 20px !important;
+  min-width: 20px !important;
+  padding: 0 !important;
+  border-radius: 999px !important;
+  background: #dc2626 !important;
+  color: #ffffff !important;
+  border: 2px solid #ffffff !important;
+  font-size: 13px !important;
+  line-height: 1 !important;
+  display: grid;
+  place-items: center;
+  box-shadow: 0 4px 10px rgba(15, 23, 42, 0.2);
+}
+
+.mini-delete-link {
+  display: inline-block;
+  border: 0;
+  background: transparent;
+  color: #dc2626;
+  font-size: 11px;
+  font-weight: 800;
+  padding: 2px 0;
+  cursor: pointer;
+  text-align: center;
+}
+
+.mini-delete-link:hover {
+  text-decoration: underline;
+}
+
+.video-actions-mini {
+  display: grid;
+  gap: 2px;
+  justify-items: center;
+  margin-top: 4px;
+}
+
+/* ============================================================
+   Phase 2C Fix v2.7: Buyer Video Carousel + Description Iframe
+   ============================================================ */
+
+.buyer-product-modal {
+  width: min(920px, 95vw) !important;
+  max-height: 90vh !important;
+  grid-template-columns: minmax(300px, 0.88fr) minmax(330px, 0.92fr) !important;
+}
+
+.buyer-modal-gallery {
+  padding: 14px !important;
+}
+
+.buyer-modal-gallery > img,
+.buyer-main-video {
+  width: 100%;
+  height: min(68vh, 560px) !important;
+  min-height: 390px !important;
+  border-radius: 18px !important;
+  object-fit: cover;
+  background: #0f172a;
+}
+
+.buyer-main-video {
+  display: block;
+}
+
+.thumb-row {
+  gap: 8px;
+}
+
+.thumb {
+  width: 58px !important;
+  height: 58px !important;
+  border-radius: 12px !important;
+}
+
+.video-thumb {
+  width: 100%;
+  height: 100%;
+  display: block;
+  position: relative;
+  overflow: hidden;
+  border-radius: inherit;
+  background: #111827;
+}
+
+.video-thumb video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: .78;
+}
+
+.video-thumb span {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: white;
+  font-size: 18px;
+  text-shadow: 0 2px 8px rgba(0,0,0,.45);
+}
+
+.buyer-modal-info {
+  padding: 20px !important;
+  max-height: 90vh !important;
+}
+
+.buyer-modal-info .badges {
+  gap: 6px;
+}
+
+.buyer-modal-info .badges span {
+  font-size: 10px !important;
+  padding: 5px 8px !important;
+}
+
+.buyer-modal-info h2 {
+  font-size: clamp(20px, 2vw, 28px) !important;
+  line-height: 1.08 !important;
+  margin: 12px 0 5px !important;
+}
+
+.buyer-modal-info .price {
+  font-size: 24px !important;
+  margin: 6px 0 8px !important;
+}
+
+.product-description-frame {
+  width: 100%;
+  height: 168px;
+  border: 1px solid #dbe4ee;
+  border-radius: 14px;
+  background: #f8fafc;
+  margin: 8px 0 12px;
+  display: block;
+}
+
+.buyer-spec-grid {
+  gap: 8px !important;
+  margin: 10px 0 !important;
+}
+
+.buyer-spec-grid div {
+  padding: 10px !important;
+  min-height: 72px;
+  border-radius: 13px !important;
+}
+
+.buyer-spec-grid small {
+  font-size: 9.5px !important;
+  margin-bottom: 4px;
+}
+
+.buyer-spec-grid strong {
+  font-size: 12px !important;
+  line-height: 1.18 !important;
+}
+
+.buyer-spec-grid-secondary div {
+  min-height: 66px;
+}
+
+.buyer-modal-info h3 {
+  font-size: 17px;
+  margin: 12px 0 8px;
+}
+
+.buyer-product-modal label {
+  font-size: 12px;
+  margin-bottom: 6px;
+}
+
+.color-pills {
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.color-pills button {
+  padding: 9px 14px !important;
+  font-size: 14px !important;
+}
+
+.buyer-product-modal select,
+.buyer-product-modal input {
+  padding: 11px 12px !important;
+  border-radius: 12px !important;
+  margin-bottom: 10px !important;
+  font-size: 14px !important;
+}
+
+.buyer-modal-actions {
+  gap: 8px !important;
+  margin-top: 12px;
+}
+
+.buyer-modal-actions button {
+  padding: 11px 9px !important;
+  font-size: 12.5px !important;
+  border-radius: 13px !important;
+}
+
+@media (max-width: 900px) {
+  .buyer-product-modal {
+    grid-template-columns: 1fr !important;
+    overflow-y: auto;
+  }
+
+  .buyer-modal-gallery > img,
+  .buyer-main-video {
+    height: auto !important;
+    min-height: 300px !important;
+    max-height: 55vh !important;
+  }
+
+  .product-description-frame {
+    height: 150px;
+  }
+}
+
+/* ============================================================
+   Phase 2C Fix v2.8.1: Compact Seller Matrix + Collapse per Warna
+   ============================================================ */
+
+.product-crud-panel {
+  padding: 14px 16px !important;
+}
+
+.product-crud-panel .section-title {
+  margin: 8px 0 10px !important;
+  gap: 12px !important;
+}
+
+.product-crud-panel .section-title h1 {
+  font-size: 25px !important;
+  line-height: 1.08 !important;
+}
+
+.product-crud-panel .section-title p {
+  font-size: 12.5px !important;
+  line-height: 1.25 !important;
+  margin-top: 3px !important;
+}
+
+.compact-toolbar-row {
+  gap: 8px !important;
+}
+
+.compact-toolbar-row button,
+.product-crud-panel .toolbar-row button {
+  padding: 9px 13px !important;
+  border-radius: 13px !important;
+  font-size: 13px !important;
+}
+
+.product-crud-panel .matrix {
+  gap: 10px !important;
+}
+
+.product-crud-panel .matrix-item {
+  border-radius: 17px !important;
+}
+
+.matrix-parent-crud {
+  grid-template-columns: 40px minmax(220px, 1.7fr) repeat(8, minmax(96px, .82fr)) 126px !important;
+  gap: 8px !important;
+  padding: 10px 12px !important;
+  font-size: 12px !important;
+  line-height: 1.16 !important;
+  min-height: 122px !important;
+}
+
+.matrix-parent-crud > div {
+  min-width: 92px !important;
+}
+
+.matrix-parent-crud .parent-main {
+  min-width: 210px !important;
+}
+
+.matrix-parent-crud .parent-main strong {
+  font-size: 13.5px !important;
+  line-height: 1.16 !important;
+}
+
+.parent-main small,
+.matrix-parent-crud small {
+  font-size: 9.8px !important;
+  margin-top: 2px !important;
+}
+
+.matrix-parent-crud span {
+  font-size: 12px !important;
+  line-height: 1.16 !important;
+  margin-top: 2px !important;
+}
+
+.matrix-parent-crud .status-pill {
+  padding: 5px 8px !important;
+  font-size: 10.5px !important;
+}
+
+.product-crud-panel .collapse-button {
+  width: 30px !important;
+  height: 30px !important;
+  border-radius: 10px !important;
+  font-size: 14px !important;
+}
+
+.product-crud-panel .action-stack {
+  gap: 5px !important;
+}
+
+.product-crud-panel .action-stack button {
+  padding: 7px 8px !important;
+  border-radius: 10px !important;
+  font-size: 11.5px !important;
+}
+
+.product-crud-panel .variant-zone {
+  padding: 10px 12px !important;
+}
+
+.product-crud-panel .variant-head {
+  margin-bottom: 8px !important;
+  gap: 10px !important;
+}
+
+.product-crud-panel .variant-head h3 {
+  font-size: 17px !important;
+  line-height: 1.1 !important;
+}
+
+.product-crud-panel .variant-head p {
+  font-size: 12px !important;
+  line-height: 1.25 !important;
+}
+
+.product-crud-panel .variant-head .btn-primary {
+  padding: 9px 13px !important;
+  font-size: 12.5px !important;
+  border-radius: 13px !important;
+}
+
+.product-crud-panel .variant-table-wrap {
+  max-height: 420px !important;
+  border-radius: 15px !important;
+}
+
+.product-crud-panel .variant-table {
+  min-width: 1180px !important;
+}
+
+.product-crud-panel .variant-table th,
+.product-crud-panel .variant-table td {
+  padding: 8px 10px !important;
+  font-size: 12px !important;
+  line-height: 1.18 !important;
+  vertical-align: middle !important;
+}
+
+.product-crud-panel .variant-table th {
+  font-size: 11.5px !important;
+}
+
+.product-crud-panel .photo-cell {
+  width: 104px !important;
+  min-width: 104px !important;
+}
+
+.product-crud-panel .photo-cell > img,
+.product-crud-panel .photo-placeholder {
+  width: 50px !important;
+  height: 64px !important;
+  border-radius: 10px !important;
+  font-size: 10px !important;
+  margin-bottom: 4px !important;
+}
+
+.product-crud-panel .upload-mini,
+.product-crud-panel .video-link,
+.product-crud-panel .mini-delete-link,
+.product-crud-panel .shared-photo-note,
+.product-crud-panel .photo-cell small {
+  font-size: 10px !important;
+  line-height: 1.15 !important;
+}
+
+.product-crud-panel .color-photo-thumbs {
+  grid-template-columns: repeat(2, 34px) !important;
+  gap: 4px !important;
+  margin: 4px auto !important;
+}
+
+.product-crud-panel .color-photo-thumb {
+  width: 34px !important;
+  height: 34px !important;
+  border-radius: 8px !important;
+}
+
+.product-crud-panel .photo-delete-button {
+  width: 18px !important;
+  height: 18px !important;
+  min-width: 18px !important;
+  font-size: 12px !important;
+}
+
+.color-cell-content {
+  display: grid;
+  gap: 8px;
+  align-content: center;
+  justify-items: start;
+}
+
+.color-cell-content strong {
+  font-size: 12px;
+  line-height: 1.15;
+}
+
+.mini-collapse-color {
+  padding: 5px 8px !important;
+  border-radius: 9px !important;
+  font-size: 10.5px !important;
+  background: #f8fafc;
+}
+
+.variant-color-summary-row {
+  background: #fbfdff;
+}
+
+.variant-color-summary-row td {
+  border-bottom: 1px solid #cbd5e1 !important;
+}
+
+.variant-group-summary {
+  color: #334155;
+}
+
+.variant-group-summary strong,
+.variant-group-summary small {
+  display: block;
+}
+
+.variant-group-summary strong {
+  font-size: 12.5px;
+  margin-bottom: 3px;
+}
+
+.variant-group-summary small {
+  color: #64748b;
+  font-size: 10.5px;
+  line-height: 1.3;
+}
+
+.compact-media-cell {
+  padding-top: 6px !important;
+  padding-bottom: 6px !important;
+}
+
+.compact-color-cell {
+  min-width: 108px !important;
+}
+
+/* ============================================================
+   Phase 2C Fix v2.8.2: Collapse/Expand pindah ke Kolom Foto
+   ============================================================ */
+
+.photo-collapse-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin: 6px auto 4px;
+  padding: 5px 8px !important;
+  border-radius: 9px !important;
+  border: 1px solid #cbd5e1 !important;
+  background: #ffffff !important;
+  color: #0f172a !important;
+  font-size: 10.5px !important;
+  font-weight: 900 !important;
+  cursor: pointer;
+}
+
+.photo-collapse-button:hover {
+  background: #f8fafc !important;
+}
+
+.collapsed-photo-cell {
+  background: #f8fafc !important;
+}
+
+.collapsed-photo-control {
+  display: grid;
+  gap: 4px;
+  justify-items: center;
+  align-content: center;
+  min-height: 98px;
+  text-align: center;
+}
+
+.photo-hidden-icon {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  border-radius: 12px;
+  background: #e2e8f0;
+  color: #64748b;
+  font-size: 10px;
+  font-weight: 900;
+}
+
+.collapsed-photo-control strong {
+  color: #475569;
+  font-size: 10.5px;
+  line-height: 1.15;
+}
+
+.collapsed-photo-control small {
+  color: #64748b;
+  font-size: 10px;
+  line-height: 1.15;
+}
+
+.collapse-action-empty {
+  min-width: 110px;
+}
+
+.collapse-action-empty::after {
+  content: "";
+  display: block;
+  height: 1px;
+}
+
+.variant-color-summary-row .variant-group-summary {
+  padding-top: 14px !important;
+  padding-bottom: 14px !important;
+}
+
+.variant-color-summary-row .merged-color-cell {
+  background: #ffffff;
+}
+
+.variant-color-summary-row .color-cell-content {
+  justify-items: start;
+  align-content: center;
+}
+
+/* ============================================================
+   Phase 2D.1: Master Data CRUD Force Active
+   ============================================================ */
+
+.master-crud-panel {
+  padding: 18px !important;
+}
+
+.master-section-title {
+  margin-top: 6px !important;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.master-section-title h1 {
+  font-size: 28px;
+  line-height: 1.08;
+}
+
+.master-section-title p {
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.master-toolbar,
+.master-filter-row,
+.master-action-stack,
+.master-modal-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.master-toolbar button,
+.master-filter-row button,
+.master-action-stack button,
+.master-modal-actions button {
+  padding: 9px 13px;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.master-tabs {
+  margin: 12px 0;
+}
+
+.master-tabs button {
+  padding: 9px 13px;
+  border-radius: 13px;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.master-info-card {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: center;
+  border: 1px solid var(--line);
+  background: #f8fafc;
+  border-radius: 18px;
+  padding: 14px 16px;
+  margin: 10px 0 12px;
+}
+
+.master-info-card h2 {
+  margin: 0;
+  font-size: 18px;
+  line-height: 1.2;
+}
+
+.master-info-card p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 12.5px;
+}
+
+.master-counter {
+  display: grid;
+  justify-items: end;
+  color: var(--muted);
+  min-width: 92px;
+}
+
+.master-counter strong {
+  color: var(--ink);
+  font-size: 26px;
+  line-height: 1;
+}
+
+.master-counter span {
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.master-filter-row {
+  justify-content: space-between;
+  margin: 10px 0 12px;
+}
+
+.master-filter-row input {
+  flex: 1;
+  min-width: 240px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 11px 13px;
+  font-weight: 800;
+}
+
+.master-message {
+  margin: 10px 0 !important;
+}
+
+.success-box {
+  border: 1px solid #bbf7d0;
+  background: #f0fdf4;
+  color: #166534;
+  border-radius: 16px;
+  padding: 14px;
+  margin: 14px 0;
+  font-weight: 800;
+}
+
+.master-muted {
+  color: var(--muted);
+  font-weight: 800;
+}
+
+.master-table-wrap {
+  max-height: 520px;
+  border-radius: 16px;
+}
+
+.master-table {
+  min-width: 1080px;
+}
+
+.master-table th,
+.master-table td {
+  padding: 10px 12px;
+  font-size: 12.5px;
+  line-height: 1.25;
+  vertical-align: middle;
+}
+
+.master-table td {
+  max-width: 340px;
+}
+
+.master-color-cell,
+.master-color-input {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.master-color-swatch {
+  width: 28px;
+  height: 28px;
+  border-radius: 9px;
+  border: 1px solid #cbd5e1;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.4);
+}
+
+.master-action-stack {
+  min-width: 230px;
+}
+
+.master-action-stack button {
+  min-width: 68px;
+}
+
+.master-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 9997;
+  display: grid;
+  place-items: center;
+  background: rgba(15, 23, 42, .58);
+  padding: 18px;
+}
+
+.master-modal {
+  width: min(760px, 96vw);
+  max-height: 92vh;
+  overflow: hidden;
+  background: #ffffff;
+  border-radius: 24px;
+  border: 1px solid #dbe4ee;
+  box-shadow: 0 24px 80px rgba(15, 23, 42, .24);
+  display: grid;
+  grid-template-rows: auto 1fr;
+}
+
+.master-modal-header {
+  position: relative;
+  padding: 20px 22px 14px;
+  border-bottom: 1px solid var(--line);
+}
+
+.master-modal-header h2 {
+  margin: 0;
+  font-size: 22px;
+  line-height: 1.15;
+}
+
+.master-modal-header p {
+  margin: 5px 54px 0 0;
+  color: var(--muted);
+  font-size: 12.5px;
+  line-height: 1.35;
+}
+
+.master-close {
+  top: 16px !important;
+  right: 16px !important;
+}
+
+.master-modal form {
+  min-height: 0;
+  overflow: auto;
+  padding: 18px 22px 20px;
+}
+
+.master-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 13px;
+}
+
+.master-form-grid label {
+  display: grid;
+  gap: 6px;
+  color: #334155;
+  font-size: 12.5px;
+  font-weight: 900;
+}
+
+.master-form-grid label span {
+  display: inline-flex;
+  gap: 4px;
+}
+
+.master-form-grid label em {
+  color: #dc2626;
+  font-style: normal;
+}
+
+.master-field-full {
+  grid-column: 1 / -1;
+}
+
+.master-form-grid input,
+.master-form-grid select,
+.master-form-grid textarea {
+  width: 100%;
+  border: 1px solid #cbd5e1;
+  border-radius: 13px;
+  padding: 11px 12px;
+  background: #ffffff;
+  color: var(--ink);
+  font-weight: 800;
+}
+
+.master-form-grid textarea {
+  resize: vertical;
+  min-height: 96px;
+  line-height: 1.45;
+}
+
+.master-color-input input[type="color"] {
+  width: 48px;
+  height: 43px;
+  padding: 3px;
+  flex: 0 0 48px;
+}
+
+.master-modal-actions {
+  justify-content: flex-end;
+  border-top: 1px solid var(--line);
+  margin: 18px -22px -20px;
+  padding: 14px 22px;
+  background: #ffffff;
+  position: sticky;
+  bottom: 0;
+}
+
+@media (max-width: 720px) {
+  .master-section-title,
+  .master-info-card,
+  .master-filter-row {
+    display: grid;
+    justify-items: stretch;
+  }
+
+  .master-counter {
+    justify-items: start;
+  }
+
+  .master-form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .master-toolbar button,
+  .master-filter-row button {
+    width: 100%;
+  }
+}
+
+/* ============================================================
+   Phase 2D.2: Master Model Produk Hierarchy Collapse
+   ============================================================ */
+
+.master-hierarchy-note {
+  margin: 10px 0 12px;
+  border: 1px solid #bfdbfe;
+  background: #eff6ff;
+  color: #1e3a8a;
+  border-radius: 14px;
+  padding: 10px 12px;
+  font-size: 12.5px;
+  line-height: 1.35;
+  font-weight: 800;
+}
+
+.master-model-hierarchy-table .master-group-row td {
+  padding: 10px 12px !important;
+  border-bottom: 1px solid #dbe4ee !important;
+}
+
+.master-group-row td {
+  white-space: normal;
+}
+
+.master-group-row td > * {
+  vertical-align: middle;
+}
+
+.master-group-toggle {
+  width: 28px;
+  height: 28px;
+  border-radius: 10px;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #0f172a;
+  font-size: 17px;
+  line-height: 1;
+  font-weight: 1000;
+  margin-right: 10px;
+  cursor: pointer;
+}
+
+.master-group-toggle:hover {
+  background: #f8fafc;
+}
+
+.master-group-label {
+  display: inline-flex;
+  min-width: 128px;
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 1000;
+  text-transform: uppercase;
+  letter-spacing: .02em;
+}
+
+.master-group-row strong {
+  display: inline-flex;
+  color: #0f172a;
+  font-size: 13.5px;
+  font-weight: 1000;
+  margin-right: 10px;
+}
+
+.master-group-row em {
+  display: inline-flex;
+  color: #64748b;
+  font-size: 11.5px;
+  font-style: normal;
+  font-weight: 900;
+}
+
+.master-group-model td {
+  background: #eaf2ff;
+  box-shadow: inset 4px 0 0 #2563eb;
+}
+
+.master-group-print td {
+  background: #f4f8ff;
+  box-shadow: inset 22px 0 0 #bfdbfe;
+  padding-left: 34px !important;
+}
+
+.master-group-motif td {
+  background: #fbfdff;
+  box-shadow: inset 42px 0 0 #e2e8f0;
+  padding-left: 54px !important;
+}
+
+.master-description-cell {
+  max-width: 420px;
+  max-height: 94px;
+  overflow: auto;
+  padding-right: 6px;
+  white-space: pre-wrap;
+  line-height: 1.28;
+}
+
+.master-model-hierarchy-table tbody tr:not(.master-group-row) td {
+  background: #ffffff;
+}
+
+.master-model-hierarchy-table tbody tr:not(.master-group-row) td:first-child {
+  color: #475569;
+  font-weight: 1000;
+}
+
+@media (max-width: 900px) {
+  .master-group-label {
+    min-width: 96px;
+  }
+
+  .master-group-row strong {
+    display: inline;
+  }
+
+  .master-group-row em {
+    margin-left: 38px;
+    margin-top: 4px;
+    display: block;
+  }
+}
+
+/* ============================================================
+   Phase 2D.3: Compact Hierarchy UI untuk Master Model Produk
+   - indentation lebih jelas
+   - padding lebih rapat
+   - font dan tombol lebih kecil
+   ============================================================ */
+
+.master-hierarchy-note {
+  margin: 6px 0 8px !important;
+  padding: 7px 10px !important;
+  border-radius: 11px !important;
+  font-size: 11px !important;
+  line-height: 1.25 !important;
+}
+
+.master-table-wrap {
+  max-height: 500px !important;
+}
+
+.master-model-hierarchy-table {
+  min-width: 1020px !important;
+}
+
+.master-model-hierarchy-table th,
+.master-model-hierarchy-table td {
+  padding: 7px 9px !important;
+  font-size: 11px !important;
+  line-height: 1.2 !important;
+}
+
+.master-model-hierarchy-table th {
+  font-size: 10.5px !important;
+  letter-spacing: 0 !important;
+}
+
+.master-model-hierarchy-table .master-group-row td {
+  padding-top: 5px !important;
+  padding-bottom: 5px !important;
+  height: 32px !important;
+  font-size: 10.5px !important;
+}
+
+.master-group-toggle {
+  width: 22px !important;
+  height: 22px !important;
+  min-width: 22px !important;
+  border-radius: 7px !important;
+  margin-right: 8px !important;
+  font-size: 14px !important;
+  line-height: 1 !important;
+  padding: 0 !important;
+}
+
+.master-group-label {
+  min-width: 122px !important;
+  font-size: 9.2px !important;
+  letter-spacing: .015em !important;
+  margin-right: 6px !important;
+}
+
+.master-group-row strong {
+  font-size: 11px !important;
+  margin-right: 8px !important;
+}
+
+.master-group-row em {
+  font-size: 9.5px !important;
+}
+
+/* Level 1: Jenis Model */
+.master-group-model td {
+  background: #e8f1ff !important;
+  box-shadow: inset 4px 0 0 #2563eb !important;
+  padding-left: 10px !important;
+}
+
+/* Level 2: Tipe Print/Sablon dibuat agak menjorok */
+.master-group-print td {
+  background: #f1f6ff !important;
+  box-shadow: inset 4px 0 0 #93c5fd !important;
+  padding-left: 34px !important;
+}
+
+/* Level 3: Motif dibuat lebih menjorok lagi */
+.master-group-motif td {
+  background: #fbfdff !important;
+  box-shadow: inset 4px 0 0 #cbd5e1 !important;
+  padding-left: 62px !important;
+}
+
+/* Baris detail dibuat lebih rapat dan terasa masuk di bawah hierarchy */
+.master-model-hierarchy-table tbody tr:not(.master-group-row) td {
+  padding-top: 7px !important;
+  padding-bottom: 7px !important;
+  font-size: 11px !important;
+  background: #ffffff !important;
+}
+
+.master-model-hierarchy-table tbody tr:not(.master-group-row) td:first-child {
+  padding-left: 14px !important;
+  color: #475569 !important;
+  font-size: 10.5px !important;
+}
+
+.master-model-hierarchy-table tbody tr:not(.master-group-row) td:nth-child(2) {
+  padding-left: 20px !important;
+}
+
+.master-model-hierarchy-table tbody tr:not(.master-group-row) td:nth-child(3) {
+  padding-left: 22px !important;
+}
+
+.master-model-hierarchy-table tbody tr:not(.master-group-row) td:nth-child(4) {
+  padding-left: 24px !important;
+}
+
+.master-description-cell {
+  max-width: 360px !important;
+  max-height: 64px !important;
+  font-size: 10.5px !important;
+  line-height: 1.22 !important;
+  padding-right: 4px !important;
+}
+
+.master-action-stack {
+  min-width: 190px !important;
+  gap: 5px !important;
+}
+
+.master-action-stack button {
+  min-width: 52px !important;
+  padding: 6px 8px !important;
+  border-radius: 9px !important;
+  font-size: 10.5px !important;
+}
+
+.master-action-stack .danger {
+  min-width: 78px !important;
+}
+
+.master-action-stack .solid-danger {
+  min-width: 58px !important;
+}
+
+.master-model-hierarchy-table .status-pill {
+  padding: 5px 8px !important;
+  border-radius: 999px !important;
+  font-size: 9.8px !important;
+}
+
+/* Kolom dibuat lebih proporsional agar tabel terasa longgar */
+.master-model-hierarchy-table th:nth-child(1),
+.master-model-hierarchy-table td:nth-child(1) {
+  width: 46px !important;
+}
+
+.master-model-hierarchy-table th:nth-child(2),
+.master-model-hierarchy-table td:nth-child(2) {
+  width: 112px !important;
+}
+
+.master-model-hierarchy-table th:nth-child(3),
+.master-model-hierarchy-table td:nth-child(3) {
+  width: 130px !important;
+}
+
+.master-model-hierarchy-table th:nth-child(4),
+.master-model-hierarchy-table td:nth-child(4) {
+  width: 112px !important;
+}
+
+.master-model-hierarchy-table th:nth-child(5),
+.master-model-hierarchy-table td:nth-child(5) {
+  width: 150px !important;
+}
+
+.master-model-hierarchy-table th:nth-child(7),
+.master-model-hierarchy-table td:nth-child(7) {
+  width: 82px !important;
+}
+
+.master-model-hierarchy-table th:nth-child(8),
+.master-model-hierarchy-table td:nth-child(8) {
+  width: 190px !important;
+}
+
+@media (max-width: 900px) {
+  .master-group-print td {
+    padding-left: 28px !important;
+  }
+
+  .master-group-motif td {
+    padding-left: 48px !important;
+  }
+
+  .master-group-label {
+    min-width: 92px !important;
+  }
+
+  .master-group-row em {
+    margin-left: 30px !important;
+  }
+}
+
+/* ============================================================
+   Phase 2D.5: Master Model Default Expand + Colored Hierarchy
+   ============================================================ */
+
+/* Perjelas warna setiap level fungsi expand/collapse */
+.master-model-hierarchy-table .master-group-row td {
+  font-size: 10.8px !important;
+  font-weight: 1000 !important;
+  border-bottom: 1px solid rgba(15, 23, 42, .10) !important;
+}
+
+/* Level 1: Jenis Model — biru mencolok */
+.master-group-model td {
+  background: linear-gradient(90deg, #2563eb 0 8px, #dbeafe 8px 100%) !important;
+  color: #0f172a !important;
+  box-shadow: none !important;
+}
+
+/* Level 2: Tipe Print/Sablon — hijau mencolok */
+.master-group-print td {
+  background: linear-gradient(90deg, #16a34a 0 8px, #dcfce7 8px 100%) !important;
+  color: #0f172a !important;
+  box-shadow: none !important;
+  padding-left: 38px !important;
+}
+
+/* Level 3: Motif — kuning/oranye mencolok */
+.master-group-motif td {
+  background: linear-gradient(90deg, #f59e0b 0 8px, #fef3c7 8px 100%) !important;
+  color: #0f172a !important;
+  box-shadow: none !important;
+  padding-left: 70px !important;
+}
+
+.master-group-model .master-group-label,
+.master-group-print .master-group-label,
+.master-group-motif .master-group-label {
+  color: #334155 !important;
+  opacity: 1 !important;
+}
+
+.master-group-model strong {
+  color: #1d4ed8 !important;
+}
+
+.master-group-print strong {
+  color: #15803d !important;
+}
+
+.master-group-motif strong {
+  color: #b45309 !important;
+}
+
+.master-group-model em,
+.master-group-print em,
+.master-group-motif em {
+  color: #475569 !important;
+}
+
+/* Tombol expand/collapse dibuat seperti icon yang lebih kontras */
+.master-group-toggle {
+  background: #ffffff !important;
+  color: #0f172a !important;
+  border: 1px solid rgba(15, 23, 42, .20) !important;
+  box-shadow: 0 1px 0 rgba(15, 23, 42, .08) !important;
+}
+
+.master-group-toggle:hover {
+  transform: translateY(-1px);
+  background: #f8fafc !important;
+}
+
+.master-group-model .master-group-toggle {
+  border-color: #2563eb !important;
+  color: #1d4ed8 !important;
+}
+
+.master-group-print .master-group-toggle {
+  border-color: #16a34a !important;
+  color: #15803d !important;
+}
+
+.master-group-motif .master-group-toggle {
+  border-color: #f59e0b !important;
+  color: #b45309 !important;
+}
+
+/* Detail row tetap netral agar kontras dengan baris hierarchy */
+.master-model-hierarchy-table tbody tr:not(.master-group-row) td {
+  background: #ffffff !important;
+}
+
+@media (max-width: 900px) {
+  .master-group-print td {
+    padding-left: 30px !important;
+  }
+
+  .master-group-motif td {
+    padding-left: 52px !important;
+  }
+}
+
+/* ============================================================
+   Phase 2D.6: Master Model Accordion Default Collapse
+   ============================================================ */
+
+.master-hierarchy-note {
+  background: #eef6ff !important;
+  border-color: #93c5fd !important;
+  color: #0f3b7a !important;
+}
+
+.master-model-hierarchy-table .master-group-row td {
+  cursor: default;
+}
+
+/* Baris level yang sedang collapsed tetap punya warna jelas */
+.master-group-model td {
+  background: linear-gradient(90deg, #2563eb 0 8px, #dbeafe 8px 100%) !important;
+}
+
+.master-group-print td {
+  background: linear-gradient(90deg, #16a34a 0 8px, #dcfce7 8px 100%) !important;
+}
+
+.master-group-motif td {
+  background: linear-gradient(90deg, #f59e0b 0 8px, #fef3c7 8px 100%) !important;
+}
+
+/* Tombol + / - lebih kecil dan kontras */
+.master-group-toggle {
+  width: 21px !important;
+  height: 21px !important;
+  min-width: 21px !important;
+  border-radius: 7px !important;
+  font-size: 14px !important;
+  font-weight: 1000 !important;
+  line-height: 1 !important;
+  padding: 0 !important;
+}
+
+/* ============================================================
+   Phase 2D.7: Strict Default Plus Accordion
+   ============================================================ */
+
+.master-group-row.is-closed .master-group-toggle::after,
+.master-group-row.is-open .master-group-toggle::after {
+  content: "";
+}
+
+.master-group-row.is-closed .master-group-toggle {
+  background: #ffffff !important;
+}
+
+.master-group-row.is-open .master-group-toggle {
+  background: #0f172a !important;
+  color: #ffffff !important;
+  border-color: #0f172a !important;
+}
+
+.master-group-row.is-closed .master-group-label::after {
+  content: "  • tertutup";
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 9px;
+  color: #64748b;
+  font-weight: 900;
+}
+
+.master-group-row.is-open .master-group-label::after {
+  content: "  • terbuka";
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 9px;
+  color: #0f172a;
+  font-weight: 1000;
+}
+
+/* Saat default, semua row parent tampak sebagai pilihan yang bisa dibuka */
+.master-model-hierarchy-table .master-group-row.is-closed td {
+  filter: saturate(1.08);
+}
+
+.master-model-hierarchy-table .master-group-row.is-open td {
+  filter: saturate(1.35);
+}
+
+/* ============================================================
+   Phase 2D.8: Force Initial Closed Accordion
+   ============================================================ */
+
+/* Hilangkan label tambahan terbuka/tertutup dari paket sebelumnya */
+.master-group-row.is-closed .master-group-label::after,
+.master-group-row.is-open .master-group-label::after {
+  content: "" !important;
+}
+
+/* Default closed row seperti gambar referensi: baris biru dengan tombol plus */
+.master-group-row.is-closed td {
+  background: #dbeafe !important;
+}
+
+.master-group-row.is-open.master-group-model td {
+  background: linear-gradient(90deg, #2563eb 0 8px, #dbeafe 8px 100%) !important;
+}
+
+.master-group-row.is-open.master-group-print td {
+  background: linear-gradient(90deg, #16a34a 0 8px, #dcfce7 8px 100%) !important;
+}
+
+.master-group-row.is-open.master-group-motif td {
+  background: linear-gradient(90deg, #f59e0b 0 8px, #fef3c7 8px 100%) !important;
+}
+
+.master-group-row.is-closed.master-group-model td {
+  background: linear-gradient(90deg, #2563eb 0 8px, #dbeafe 8px 100%) !important;
+}
+
+.master-group-row.is-closed.master-group-print td {
+  background: linear-gradient(90deg, #16a34a 0 8px, #dcfce7 8px 100%) !important;
+}
+
+.master-group-row.is-closed.master-group-motif td {
+  background: linear-gradient(90deg, #f59e0b 0 8px, #fef3c7 8px 100%) !important;
+}
+
+.master-group-row.is-closed .master-group-toggle {
+  background: #ffffff !important;
+  color: #2563eb !important;
+  border-color: #2563eb !important;
+}
+
+.master-group-row.is-open .master-group-toggle {
+  background: #ffffff !important;
+  color: #0f172a !important;
+  border-color: #0f172a !important;
+}
+
+.master-hierarchy-note {
+  font-size: 10.5px !important;
+  padding: 6px 9px !important;
+}
+
+/* ============================================================
+   Phase 2D.9: Hard Reset Accordion Initial Closed
+   ============================================================ */
+
+.master-hierarchy-note {
+  background: #eef6ff !important;
+  border-color: #93c5fd !important;
+  color: #0f3b7a !important;
+  font-size: 10.5px !important;
+  padding: 6px 9px !important;
+}
+
+.master-group-row.is-closed .master-group-label::after,
+.master-group-row.is-open .master-group-label::after {
+  content: "" !important;
+}
+
+.master-group-row.is-closed.master-group-model td,
+.master-group-row.is-open.master-group-model td {
+  background: linear-gradient(90deg, #2563eb 0 8px, #dbeafe 8px 100%) !important;
+  box-shadow: none !important;
+}
+
+.master-group-row.is-closed.master-group-print td,
+.master-group-row.is-open.master-group-print td {
+  background: linear-gradient(90deg, #16a34a 0 8px, #dcfce7 8px 100%) !important;
+  box-shadow: none !important;
+  padding-left: 38px !important;
+}
+
+.master-group-row.is-closed.master-group-motif td,
+.master-group-row.is-open.master-group-motif td {
+  background: linear-gradient(90deg, #f59e0b 0 8px, #fef3c7 8px 100%) !important;
+  box-shadow: none !important;
+  padding-left: 70px !important;
+}
+
+.master-group-row.is-closed .master-group-toggle {
+  background: #ffffff !important;
+  color: #2563eb !important;
+  border-color: #2563eb !important;
+}
+
+.master-group-row.is-open .master-group-toggle {
+  background: #ffffff !important;
+  color: #0f172a !important;
+  border-color: #0f172a !important;
+}
+
+.master-group-row.is-closed.master-group-print .master-group-toggle,
+.master-group-row.is-open.master-group-print .master-group-toggle {
+  color: #15803d !important;
+  border-color: #16a34a !important;
+}
+
+.master-group-row.is-closed.master-group-motif .master-group-toggle,
+.master-group-row.is-open.master-group-motif .master-group-toggle {
+  color: #b45309 !important;
+  border-color: #f59e0b !important;
+}
+
+.master-model-hierarchy-table .master-group-row td {
+  height: 31px !important;
+  padding-top: 5px !important;
+  padding-bottom: 5px !important;
+}
+
+.master-group-toggle {
+  width: 21px !important;
+  height: 21px !important;
+  min-width: 21px !important;
+  border-radius: 7px !important;
+  font-size: 14px !important;
+  font-weight: 1000 !important;
+  line-height: 1 !important;
+  padding: 0 !important;
+}
+
+/* ============================================================
+   Phase 2D.10: Clean Header + Preview Buyer New Tab
+   ============================================================ */
+
+.clean-topbar {
+  justify-content: flex-start !important;
+}
+
+/* Pastikan tombol navigasi lama di header tidak tampil lagi bila masih ada cache/komponen lama */
+.layout-clean-header .topbar .nav {
+  display: none !important;
+}
+
+.quick-actions .quick-action-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  text-decoration: none;
+  background: #111827;
+  border: 1px solid #111827;
+  border-radius: 14px;
+  padding: 12px 16px;
+  font-weight: 900;
+}
+
+.quick-actions .quick-action-link:hover {
+  background: #0f172a;
+  transform: translateY(-1px);
+}
+
+@media (max-width: 720px) {
+  .clean-topbar {
+    height: auto;
+    min-height: 64px;
+    padding: 14px 18px;
+  }
+
+  .brand strong {
+    font-size: 15px;
+  }
+
+  .brand span {
+    font-size: 11px;
+  }
+
+  .quick-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .quick-actions .quick-action-link {
+    width: 100%;
+  }
+}
+
+/* ============================================================
+   Phase 2D.11: Sidebar Menu + Header Login/Logout
+   ============================================================ */
+
+.auth-topbar {
+  justify-content: space-between !important;
+}
+
+.header-auth-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.header-auth-btn {
+  color: #ffffff;
+  text-decoration: none;
+  background: rgba(255,255,255,.08);
+  border: 1px solid rgba(255,255,255,.18);
+  border-radius: 999px;
+  padding: 10px 15px;
+  font-weight: 950;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.header-auth-btn:hover {
+  background: rgba(255,255,255,.14);
+}
+
+.main-with-sidebar {
+  width: min(1540px, calc(100% - 28px));
+  margin: 18px auto 60px;
+  display: grid;
+  grid-template-columns: 250px minmax(0, 1fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.main-with-sidebar .app-shell {
+  width: 100%;
+  margin: 0;
+}
+
+.seller-sidebar {
+  position: sticky;
+  top: 88px;
+  background: #ffffff;
+  border: 1px solid var(--line);
+  border-radius: 22px;
+  padding: 14px;
+  box-shadow: 0 18px 38px rgba(15,23,42,.08);
+}
+
+.sidebar-title {
+  padding: 10px 10px 12px;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 12px;
+}
+
+.sidebar-title strong {
+  display: block;
+  font-size: 16px;
+  color: var(--ink);
+}
+
+.sidebar-title span {
+  display: block;
+  margin-top: 2px;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.sidebar-nav {
+  display: grid;
+  gap: 8px;
+}
+
+.sidebar-nav a,
+.sidebar-nav button {
+  width: 100%;
+  border: 1px solid #dbe4ee;
+  background: #f8fafc;
+  color: #0f172a;
+  text-decoration: none;
+  border-radius: 14px;
+  min-height: 43px;
+  padding: 10px 12px;
+  font-weight: 950;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-align: left;
+}
+
+.sidebar-nav a:hover,
+.sidebar-nav button:hover,
+.sidebar-nav a.active,
+.sidebar-nav button.active {
+  background: #111827;
+  color: #ffffff;
+  border-color: #111827;
+}
+
+.sidebar-parent svg:last-child {
+  margin-left: auto;
+}
+
+.sidebar-submenu {
+  display: grid;
+  gap: 6px;
+  margin: -2px 0 4px 18px;
+  padding-left: 12px;
+  border-left: 3px solid #dbeafe;
+}
+
+.sidebar-submenu button {
+  min-height: 34px;
+  padding: 8px 10px;
+  border-radius: 11px;
+  font-size: 12px;
+  background: #ffffff;
+}
+
+.seller-dashboard-hint {
+  margin-top: 18px;
+  padding: 12px 14px;
+  border: 1px solid #bfdbfe;
+  background: #eff6ff;
+  color: #1e3a8a;
+  border-radius: 16px;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.master-active-context {
+  margin: 8px 0 12px;
+  padding: 10px 12px;
+  border: 1px solid #dbe4ee;
+  background: #f8fafc;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.master-active-context span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.master-active-context strong {
+  background: #111827;
+  color: #ffffff;
+  border-radius: 999px;
+  padding: 6px 11px;
+  font-size: 12px;
+}
+
+.master-active-context em {
+  color: var(--muted);
+  font-style: normal;
+  font-size: 12px;
+}
+
+.orders-table-wrap {
+  max-height: 560px;
+}
+
+.orders-table th,
+.orders-table td {
+  font-size: 12px;
+  padding: 10px 12px;
+}
+
+/* tombol quick action lama disembunyikan jika masih tersisa dari cache/komponen lama */
+.seller-dashboard-panel .quick-actions {
+  display: none !important;
+}
+
+@media (max-width: 1024px) {
+  .main-with-sidebar {
+    grid-template-columns: 1fr;
+  }
+
+  .seller-sidebar {
+    position: static;
+  }
+
+  .sidebar-nav {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .sidebar-submenu {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 720px) {
+  .auth-topbar {
+    gap: 12px;
+  }
+
+  .header-auth-btn {
+    padding: 9px 11px;
+    font-size: 12px;
+  }
+
+  .main-with-sidebar {
+    width: min(100% - 16px, 100%);
+    margin-top: 12px;
+    gap: 12px;
+  }
+
+  .sidebar-nav {
+    grid-template-columns: 1fr;
+  }
+}
+
