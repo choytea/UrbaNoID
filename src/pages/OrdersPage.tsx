@@ -74,6 +74,96 @@ export function OrdersPage() {
     setSelectedOrder(prev => prev ? { ...prev, [field]: value } : prev);
   }
 
+
+  function printShipmentLabel(row: ShipmentRow) {
+    if (!selectedOrder) return;
+
+    const itemList = items.map(item => `
+      <tr>
+        <td>${String(item.product_name || "-")}</td>
+        <td>${[item.color_name, item.size_name, item.pattern_type].filter(Boolean).join(" / ") || "-"}</td>
+        <td style="text-align:center">${Number(item.qty || 0)}</td>
+      </tr>
+    `).join("");
+
+    const html = `
+      <html>
+        <head>
+          <title>Label ${selectedOrder.order_number || ""}</title>
+          <style>
+            body { font-family: Arial, sans-serif; padding: 18px; color: #111827; }
+            .label { width: 100%; max-width: 520px; border: 2px solid #111827; padding: 16px; }
+            h1 { margin: 0 0 8px; font-size: 22px; }
+            h2 { margin: 12px 0 6px; font-size: 15px; }
+            p { margin: 3px 0; font-size: 13px; line-height: 1.35; }
+            .barcode { border: 1px dashed #111827; padding: 12px; text-align: center; font-size: 20px; margin: 12px 0; letter-spacing: 2px; }
+            table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+            th, td { border: 1px solid #d1d5db; padding: 6px; font-size: 12px; text-align: left; }
+            @media print { button { display: none; } body { padding: 0; } }
+          </style>
+        </head>
+        <body>
+          <div class="label">
+            <h1>UrbaNoiD Shipping Label</h1>
+            <p><strong>No Order:</strong> ${selectedOrder.order_number || "-"}</p>
+            <p><strong>Ekspedisi:</strong> ${row.courier_name || row.expedition_name || "-"} ${row.service_name ? "/ " + row.service_name : ""}</p>
+            <p><strong>Resi:</strong> ${row.tracking_number || "BELUM ADA"}</p>
+            <div class="barcode">${row.tracking_number || selectedOrder.order_number || "NO-RESI"}</div>
+            <h2>Penerima</h2>
+            <p><strong>${row.recipient_name || selectedOrder.customer_name || "-"}</strong></p>
+            <p>${row.phone || selectedOrder.customer_phone || "-"}</p>
+            <p>${row.address || selectedOrder.shipping_address || "-"}</p>
+            <p>${[row.district || selectedOrder.shipping_district, row.city || selectedOrder.shipping_city, row.province || selectedOrder.shipping_province, row.postal_code || selectedOrder.shipping_postal_code].filter(Boolean).join(", ")}</p>
+            <h2>Item</h2>
+            <table>
+              <thead><tr><th>Produk</th><th>Varian</th><th>Qty</th></tr></thead>
+              <tbody>${itemList}</tbody>
+            </table>
+            <p style="margin-top:12px"><strong>Catatan:</strong> ${selectedOrder.notes || "-"}</p>
+          </div>
+          <br />
+          <button onclick="window.print()">Cetak Label</button>
+        </body>
+      </html>
+    `;
+
+    const win = window.open("", "_blank", "width=620,height=780");
+    if (!win) return;
+    win.document.write(html);
+    win.document.close();
+  }
+
+  async function updateTrackingNumber(row: ShipmentRow) {
+    const value = window.prompt("Masukkan nomor resi pengiriman:", row.tracking_number || "");
+    if (value === null) return;
+
+    const trackingNumber = value.trim();
+    const { error } = await supabase
+      .from("shipments")
+      .update({
+        tracking_number: trackingNumber || null,
+        booking_status: trackingNumber ? "MANUAL_RESI" : "BELUM_BOOKING",
+        shipped_at: trackingNumber ? new Date().toISOString() : null,
+      })
+      .eq("id", row.id);
+
+    if (error) {
+      setError(error.message);
+      return;
+    }
+
+    if (trackingNumber && selectedOrder) {
+      await supabase.from("orders").update({
+        shipping_status: "DIKIRIM",
+        updated_at: new Date().toISOString(),
+      }).eq("id", selectedOrder.id);
+    }
+
+    if (selectedOrder) await loadDetails(selectedOrder.id);
+    await load();
+  }
+
+
   async function sendMessage() {
     if (!selectedOrder || !newMessage.trim()) return;
 
@@ -207,16 +297,24 @@ export function OrdersPage() {
                 <div>
                   <h3>Pengiriman</h3>
                   {shipments.map(row => (
-                    <p key={row.id}>{row.courier_name || row.expedition_name || "-"} {row.service_name ? `/ ${row.service_name}` : ""} · {formatCurrency(Number(row.shipping_cost || 0))}</p>
+                    <div className="shipment-card" key={row.id}>
+                      <p>{row.courier_name || row.expedition_name || "-"} {row.service_name ? `/ ${row.service_name}` : ""} · {formatCurrency(Number(row.shipping_cost || 0))}</p>
+                      <p>Resi: <strong>{row.tracking_number || "Belum ada"}</strong></p>
+                      <p>Status booking: {row.booking_status || "BELUM_BOOKING"}</p>
+                      <div className="button-row mini-button-row">
+                        <button onClick={() => updateTrackingNumber(row)}>Input Resi</button>
+                        <button onClick={() => printShipmentLabel(row)}>Cetak Label</button>
+                      </div>
+                    </div>
                   ))}
                   {shipments.length === 0 && <p>-</p>}
                 </div>
                 <div>
                   <h3>Pembayaran</h3>
                   {payments.map(row => (
-                    <p key={row.id}>{row.payment_method || "-"} · {row.payment_status || "-"} · {formatCurrency(Number(row.amount || 0))}</p>
+                    <p key={row.id}>{row.payment_method || row.payment_method_code || "-"} · {row.payment_status || "-"} · {formatCurrency(Number(row.amount || 0))}</p>
                   ))}
-                  {payments.length === 0 && <p>-</p>}
+                  {payments.length === 0 && <p>Belum ada metode pembayaran tercatat.</p>}
                 </div>
               </div>
 

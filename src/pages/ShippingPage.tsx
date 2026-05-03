@@ -13,6 +13,12 @@ const emptyForm = {
   etd_text: "",
   display_order: 1,
   is_active: true,
+  provider_name: "",
+  provider_service_code: "",
+  supports_api_booking: false,
+  supports_tracking: false,
+  supports_label: false,
+  integration_notes: "",
 };
 
 export function ShippingPage() {
@@ -46,6 +52,12 @@ export function ShippingPage() {
       etd_text: row.etd_text || "",
       display_order: Number(row.display_order || 1),
       is_active: !!row.is_active,
+      provider_name: row.provider_name || "",
+      provider_service_code: row.provider_service_code || "",
+      supports_api_booking: !!row.supports_api_booking,
+      supports_tracking: !!row.supports_tracking,
+      supports_label: !!row.supports_label,
+      integration_notes: row.integration_notes || "",
     });
     setModalOpen(true);
   }
@@ -66,6 +78,12 @@ export function ShippingPage() {
       etd_text: form.etd_text.trim() || null,
       display_order: Number(form.display_order || 1),
       is_active: form.is_active,
+      provider_name: form.provider_name.trim() || null,
+      provider_service_code: form.provider_service_code.trim() || null,
+      supports_api_booking: !!form.supports_api_booking,
+      supports_tracking: !!form.supports_tracking,
+      supports_label: !!form.supports_label,
+      integration_notes: form.integration_notes.trim() || null,
       updated_at: new Date().toISOString(),
     };
 
@@ -97,17 +115,18 @@ export function ShippingPage() {
   const filtered = rows.filter(row => {
     const q = query.trim().toLowerCase();
     if (!q) return true;
-    return [row.name, row.courier_code, row.service_name, row.description, row.etd_text].some(value => String(value || "").toLowerCase().includes(q));
+    return [row.name, row.courier_code, row.service_name, row.description, row.etd_text, row.provider_name, row.provider_service_code]
+      .some(value => String(value || "").toLowerCase().includes(q));
   });
 
   return (
-    <section className="panel">
+    <section className="panel shipping-page-panel">
       <div className="section-title">
         <div>
           <h1>Ekspedisi</h1>
           <p>Kelola pilihan ekspedisi yang muncul saat buyer memasukkan keranjang atau checkout.</p>
           <div className="info-box shipping-integration-note">
-            Integrasi resi otomatis bisa dibuat melalui Supabase Edge Function + API agregator ekspedisi seperti Biteship, RajaOngkir, Shipper, atau Shipdeo. Kunci API tidak boleh diletakkan di frontend.
+            Mode manual aktif langsung. Mode API/resi otomatis memakai Supabase Edge Function agar API key ekspedisi tetap aman di server.
           </div>
         </div>
         <div className="button-row">
@@ -116,26 +135,34 @@ export function ShippingPage() {
         </div>
       </div>
 
-      <div className="master-filter-row"><input value={query} onChange={e => setQuery(e.target.value)} placeholder="Cari ekspedisi, layanan, kode, estimasi..." /></div>
+      <div className="shipping-guide-grid">
+        <div><strong>1. Aktifkan layanan</strong><span>Isi JNE/JNT/SICEPAT, tarif dasar, estimasi, lalu centang Aktif.</span></div>
+        <div><strong>2. Siapkan integrasi</strong><span>Isi provider, service code, dan aktifkan API Booking/Tracking/Label.</span></div>
+        <div><strong>3. Buat resi</strong><span>Pesanan seller dapat dicetak label manual sekarang, dan siap disambungkan ke Edge Function.</span></div>
+      </div>
+
+      <div className="master-filter-row"><input value={query} onChange={e => setQuery(e.target.value)} placeholder="Cari ekspedisi, layanan, kode, provider, estimasi..." /></div>
       {message && <div className="success-box">{message}</div>}
 
       <div className="table-wrap">
-        <table className="master-table">
-          <thead><tr><th>No</th><th>Ekspedisi</th><th>Layanan</th><th>Kode</th><th>Tarif Dasar</th><th>Estimasi</th><th>Integrasi</th><th>Status</th><th>Aksi</th></tr></thead>
+        <table className="master-table shipping-table">
+          <thead><tr><th>No</th><th>Ekspedisi</th><th>Layanan</th><th>Kode</th><th>Tarif</th><th>Estimasi</th><th>Provider</th><th>Fitur</th><th>Status</th><th>Aksi</th></tr></thead>
           <tbody>
             {filtered.map((row, index) => (
               <tr key={row.id}>
                 <td>{index + 1}</td>
-                <td>{row.name}</td>
+                <td><strong>{row.name}</strong><small>{row.description || ""}</small></td>
                 <td>{row.service_name || "-"}</td>
                 <td>{row.courier_code || "-"}</td>
                 <td>{formatCurrency(Number(row.base_cost || 0))}</td>
                 <td>{row.etd_text || "-"}</td>
+                <td><strong>{row.provider_name || "Manual"}</strong><small>{row.provider_service_code || ""}</small></td>
                 <td>
-                  <span className={(row as any).supports_api_booking ? "status-pill active" : "status-pill inactive"}>
-                    {(row as any).supports_api_booking ? "API Ready" : "Manual"}
-                  </span>
-                  {(row as any).supports_label && <small className="shipping-mini-note">Label</small>}
+                  <div className="shipping-feature-pills">
+                    <span className={row.supports_api_booking ? "active" : ""}>Booking</span>
+                    <span className={row.supports_tracking ? "active" : ""}>Tracking</span>
+                    <span className={row.supports_label ? "active" : ""}>Label</span>
+                  </div>
                 </td>
                 <td><span className={row.is_active ? "status-pill active" : "status-pill inactive"}>{row.is_active ? "AKTIF" : "NONAKTIF"}</span></td>
                 <td className="action-cell">
@@ -151,7 +178,7 @@ export function ShippingPage() {
 
       {modalOpen && (
         <div className="modal-backdrop" onMouseDown={event => { if (event.target === event.currentTarget) setModalOpen(false); }}>
-          <form className="simple-modal-form" onSubmit={save} onMouseDown={event => event.stopPropagation()}>
+          <form className="simple-modal-form shipping-modal-form" onSubmit={save} onMouseDown={event => event.stopPropagation()}>
             <button type="button" className="modal-close" onClick={() => setModalOpen(false)}>×</button>
             <h2>{form.id ? "Edit Ekspedisi" : "Tambah Ekspedisi"}</h2>
             <div className="checkout-grid">
@@ -161,8 +188,14 @@ export function ShippingPage() {
               <label>Tarif Dasar<input value={form.base_cost} onChange={e => setForm({ ...form, base_cost: Number(e.target.value || 0) })} type="number" min={0} /></label>
               <label>Estimasi<input value={form.etd_text} onChange={e => setForm({ ...form, etd_text: e.target.value })} placeholder="2-4 hari" /></label>
               <label>Urutan<input value={form.display_order} onChange={e => setForm({ ...form, display_order: Number(e.target.value || 1) })} type="number" /></label>
+              <label>Provider API<input value={form.provider_name} onChange={e => setForm({ ...form, provider_name: e.target.value })} placeholder="Biteship / RajaOngkir / Manual" /></label>
+              <label>Provider Service Code<input value={form.provider_service_code} onChange={e => setForm({ ...form, provider_service_code: e.target.value })} placeholder="jne_reg / jnt_ez" /></label>
               <label className="checkout-full">Deskripsi<textarea value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} rows={3} /></label>
+              <label className="checkout-full">Catatan Integrasi<textarea value={form.integration_notes} onChange={e => setForm({ ...form, integration_notes: e.target.value })} rows={3} placeholder="Catatan token provider, endpoint, atau syarat booking. Jangan isi API key di sini." /></label>
               <label className="checkbox-label"><input type="checkbox" checked={form.is_active} onChange={e => setForm({ ...form, is_active: e.target.checked })} /> Aktif</label>
+              <label className="checkbox-label"><input type="checkbox" checked={form.supports_api_booking} onChange={e => setForm({ ...form, supports_api_booking: e.target.checked })} /> API Booking</label>
+              <label className="checkbox-label"><input type="checkbox" checked={form.supports_tracking} onChange={e => setForm({ ...form, supports_tracking: e.target.checked })} /> Tracking</label>
+              <label className="checkbox-label"><input type="checkbox" checked={form.supports_label} onChange={e => setForm({ ...form, supports_label: e.target.checked })} /> Label Resi</label>
             </div>
             <div className="modal-form-actions">
               <button type="button" onClick={() => setModalOpen(false)}>Batal</button>

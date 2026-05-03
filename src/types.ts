@@ -51,6 +51,12 @@ export type ShippingExpedition = {
   etd_text: string | null;
   is_active: boolean;
   display_order: number;
+  provider_name?: string | null;
+  provider_service_code?: string | null;
+  supports_api_booking?: boolean | null;
+  supports_tracking?: boolean | null;
+  supports_label?: boolean | null;
+  integration_notes?: string | null;
   created_at?: string | null;
   updated_at?: string | null;
 };

@@ -1164,19 +1164,20 @@ async function uploadColorImages(
 
               {isShowcaseOpen && group.products.map(product => {
           const list = variantsOf(product.id);
-          const isOpen = expanded[product.id] ?? true;
+          const isOpen = expanded[product.id] ?? false;
           const stock = list.reduce((sum, item) => sum + Number(item.stock_qty || 0), 0);
           const minPrice = list.length ? Math.min(...list.map(v => finalPrice(v))) : 0;
           const maxPrice = list.length ? Math.max(...list.map(v => finalPrice(v))) : 0;
 
           return (
             <div className="matrix-item product-matrix-item" key={product.id}>
-              <div className="matrix-parent matrix-parent-crud">
-                <button className="collapse-button" onClick={() => setExpanded(prev => ({ ...prev, [product.id]: !isOpen }))}>
+              <div className={`matrix-parent matrix-parent-crud listing-accordion-parent ${isOpen ? "open" : ""}`}>
+                <button className="collapse-button listing-collapse-button" onClick={() => setExpanded(prev => ({ ...prev, [product.id]: !isOpen }))}>
                   {isOpen ? "−" : "+"}
                 </button>
 
-                <div className="parent-main">
+                <div className="parent-main listing-title-cell">
+                  <small>Nama Produk / Judul Listing</small>
                   <strong>{product.product_name}</strong>
                   <small>{product.sku_product}</small>
                 </div>

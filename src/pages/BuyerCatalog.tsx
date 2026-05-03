@@ -25,6 +25,13 @@ type Props = {
   profile?: Profile | null;
 };
 
+type MobileTab = "TOKO" | "PRODUK" | "KATEGORI";
+
+function shortTitle(value: string, max = 46) {
+  if (!value) return "-";
+  return value.length > max ? `${value.slice(0, max).trim()}...` : value;
+}
+
 export function BuyerCatalog({ session = null, profile = null }: Props) {
   const [products, setProducts] = useState<BuyerCatalogProduct[]>([]);
   const [shippingOptions, setShippingOptions] = useState<ShippingExpedition[]>([]);
@@ -32,6 +39,8 @@ export function BuyerCatalog({ session = null, profile = null }: Props) {
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
   const [selectedShowcase, setSelectedShowcase] = useState("Semua");
+  const [mobileTab, setMobileTab] = useState<MobileTab>("TOKO");
+  const [mobileSort, setMobileSort] = useState<"POPULER" | "TERBARU" | "TERLARIS" | "HARGA">("POPULER");
   const [selectedProduct, setSelectedProduct] = useState<BuyerCatalogProduct | null>(null);
   const [selectedShippingId, setSelectedShippingId] = useState("");
   const [error, setError] = useState("");
@@ -148,12 +157,35 @@ export function BuyerCatalog({ session = null, profile = null }: Props) {
 
   const filtered = products.filter(p => {
     const q = query.trim().toLowerCase();
-    const matchQuery = !q || [p.product_name, p.sku_product, p.category_name, p.showcase_name, p.material_name, p.gramasi]
+    const matchQuery = !q || [p.product_name, p.sku_product, p.category_name, p.showcase_name, p.material_name, p.gramasi, p.theme, p.motif]
       .filter(Boolean)
       .some(v => String(v).toLowerCase().includes(q));
     const matchShowcase = selectedShowcase === "Semua" || p.showcase_name === selectedShowcase;
     return matchQuery && matchShowcase;
   });
+
+  const mobileProducts = useMemo(() => {
+    const list = [...filtered];
+    if (mobileSort === "HARGA") return list.sort((a, b) => Number(a.min_price || 0) - Number(b.min_price || 0));
+    if (mobileSort === "TERLARIS") return list.sort((a, b) => Number(b.total_stock || 0) - Number(a.total_stock || 0));
+    if (mobileSort === "TERBARU") return list.reverse();
+    return list;
+  }, [filtered, mobileSort]);
+
+  const mobileRecommended = useMemo(() => filtered.slice(0, 8), [filtered]);
+  const mobileBest = useMemo(() => [...filtered].sort((a, b) => Number(b.total_stock || 0) - Number(a.total_stock || 0)).slice(0, 8), [filtered]);
+
+  const categoryGroups = useMemo(() => {
+    const map = new Map<string, { name: string; count: number; image: string | null }>();
+    products.forEach(product => {
+      const name = product.category_name || product.showcase_name || "Produk";
+      const current = map.get(name) || { name, count: 0, image: null };
+      current.count += 1;
+      if (!current.image && product.primary_image_url) current.image = product.primary_image_url;
+      map.set(name, current);
+    });
+    return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
+  }, [products]);
 
   function requireBuyerRegistration(product: BuyerCatalogProduct, variant: CatalogVariant, quantity: number, actionType: "ADD_TO_CART" | "CHECKOUT_NOW", shipping: ShippingExpedition | null) {
     savePendingBuyerAction({
@@ -286,6 +318,25 @@ export function BuyerCatalog({ session = null, profile = null }: Props) {
     void loadProducts();
   }
 
+  function renderMobileCard(product: BuyerCatalogProduct) {
+    const hasVideo = product.videos && product.videos.length > 0;
+
+    return (
+      <button className="mobile-store-product-card" key={product.product_id} onClick={() => setSelectedProduct(product)}>
+        <span className="mobile-product-image-wrap">
+          <img src={product.primary_image_url || "https://placehold.co/900x1200/111827/ffffff?text=UrbaNoiD"} alt={product.product_name} />
+          {hasVideo && <span className="mobile-video-dot">▶</span>}
+        </span>
+        <span className="mobile-product-body">
+          <strong>{shortTitle(product.product_name, 42)}</strong>
+          <em>{formatCurrency(product.min_price || 0)}</em>
+          <small>Produk Baru</small>
+          <span className="mobile-rating">⭐ 5.0 <i>|</i> Ready Stock</span>
+        </span>
+      </button>
+    );
+  }
+
   return (
     <>
       <section className="hero compact buyer-hero-polished">
@@ -315,7 +366,68 @@ export function BuyerCatalog({ session = null, profile = null }: Props) {
 
       {notice && <div className="success-box buyer-notice">{notice}</div>}
 
-      <section>
+      <section className="buyer-mobile-storefront">
+        <div className="buyer-mobile-tabs">
+          <button className={mobileTab === "TOKO" ? "active" : ""} onClick={() => setMobileTab("TOKO")}>Toko</button>
+          <button className={mobileTab === "PRODUK" ? "active" : ""} onClick={() => setMobileTab("PRODUK")}>Produk</button>
+          <button className={mobileTab === "KATEGORI" ? "active" : ""} onClick={() => setMobileTab("KATEGORI")}>Kategori</button>
+        </div>
+
+        {mobileTab === "TOKO" && (
+          <div className="buyer-mobile-section-stack">
+            <div className="buyer-mobile-card-section">
+              <h3>Kamu Mungkin Suka</h3>
+              <div className="mobile-horizontal-products">
+                {mobileRecommended.map(renderMobileCard)}
+              </div>
+            </div>
+
+            <div className="buyer-mobile-card-section">
+              <h3>Penjualan Tertinggi</h3>
+              <div className="mobile-two-grid">
+                {mobileBest.map(renderMobileCard)}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {mobileTab === "PRODUK" && (
+          <div className="buyer-mobile-card-section">
+            <div className="mobile-product-sort">
+              {(["POPULER", "TERBARU", "TERLARIS", "HARGA"] as const).map(item => (
+                <button key={item} className={mobileSort === item ? "active" : ""} onClick={() => setMobileSort(item)}>
+                  {item === "POPULER" ? "Populer" : item === "TERBARU" ? "Terbaru" : item === "TERLARIS" ? "Terlaris" : "Harga ↕"}
+                </button>
+              ))}
+            </div>
+            <div className="mobile-two-grid">
+              {mobileProducts.map(renderMobileCard)}
+            </div>
+          </div>
+        )}
+
+        {mobileTab === "KATEGORI" && (
+          <div className="buyer-mobile-card-section mobile-category-list">
+            {categoryGroups.map(group => (
+              <button
+                key={group.name}
+                onClick={() => {
+                  setSelectedShowcase("Semua");
+                  setQuery(group.name);
+                  setMobileTab("PRODUK");
+                }}
+              >
+                <img src={group.image || "https://placehold.co/160x160/fee2e2/ef4444?text=Produk"} alt={group.name} />
+                <span>{group.name}</span>
+                <small>({group.count})</small>
+                <em>›</em>
+              </button>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <section className="buyer-catalog-desktop-section">
         <div className="section-title buyer-catalog-title">
           <div>
             <h2>Katalog Produk</h2>
