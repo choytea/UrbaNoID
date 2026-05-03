@@ -5,6 +5,8 @@ import { formatCurrency } from "../lib/utils";
 type Props = {
   product: BuyerCatalogProduct;
   onClose: () => void;
+  onAddToCart?: (product: BuyerCatalogProduct, variant: CatalogVariant, quantity: number) => void;
+  onCheckoutNow?: (product: BuyerCatalogProduct, variant: CatalogVariant, quantity: number) => void;
 };
 
 type GalleryImage = CatalogImage & {
@@ -105,10 +107,12 @@ function uniqueGalleryImages(images: GalleryImage[], fallbackUrl: string | null,
   return result;
 }
 
-export function ProductDetailModal({ product, onClose }: Props) {
+export function ProductDetailModal({ product, onClose, onAddToCart, onCheckoutNow }: Props) {
   const variants = Array.isArray(product.variants) ? product.variants : [];
   const rawImages = Array.isArray(product.images) ? product.images : [];
   const rawVideos = Array.isArray(product.videos) ? product.videos : [];
+  const [quantity, setQuantity] = useState(1);
+  const [localMessage, setLocalMessage] = useState("");
 
   const variantColors = variants.map(v => v.color_name).filter(Boolean) as string[];
   const videoColors = rawVideos.map(v => v.color_name).filter(Boolean) as string[];
@@ -197,6 +201,8 @@ export function ProductDetailModal({ product, onClose }: Props) {
     variants[0];
 
   const currentMedia = galleryMedia[Math.min(mediaIndex, Math.max(galleryMedia.length - 1, 0))];
+  const maxQuantity = Math.max(1, Number(activeVariant?.stock_qty || 0));
+  const canBuy = !!activeVariant && Number(activeVariant.stock_qty || 0) > 0;
 
   function syncColorFromMedia(index: number) {
     const media = galleryMedia[index];
@@ -228,6 +234,8 @@ export function ProductDetailModal({ product, onClose }: Props) {
 
     const firstMediaIndex = galleryMedia.findIndex(media => media.color_name === color);
     if (firstMediaIndex >= 0) setMediaIndex(firstMediaIndex);
+    setQuantity(1);
+    setLocalMessage("");
   }
 
   function changeVariant(variantId: string) {
@@ -236,6 +244,31 @@ export function ProductDetailModal({ product, onClose }: Props) {
     if (variant?.color_name && variant.color_name !== selectedColor) {
       chooseColor(variant.color_name);
     }
+    setQuantity(1);
+    setLocalMessage("");
+  }
+
+  function updateQuantity(value: number) {
+    setQuantity(Math.max(1, Math.min(Number(value || 1), maxQuantity)));
+  }
+
+  function addToCart() {
+    if (!activeVariant || !canBuy) {
+      setLocalMessage("Varian ini sedang kosong.");
+      return;
+    }
+
+    onAddToCart?.(product, activeVariant, quantity);
+    setLocalMessage("Produk berhasil masuk keranjang.");
+  }
+
+  function checkoutNow() {
+    if (!activeVariant || !canBuy) {
+      setLocalMessage("Varian ini sedang kosong.");
+      return;
+    }
+
+    onCheckoutNow?.(product, activeVariant, quantity);
   }
 
   const descriptionSrcDoc = product.description ? descriptionFrameHtml(product.description) : "";
@@ -335,15 +368,26 @@ export function ProductDetailModal({ product, onClose }: Props) {
             ))}
           </select>
 
+          <div className="quantity-row">
+            <label>Jumlah</label>
+            <div className="quantity-control">
+              <button type="button" onClick={() => updateQuantity(quantity - 1)} disabled={quantity <= 1}>−</button>
+              <input value={quantity} onChange={event => updateQuantity(Number(event.target.value))} type="number" min={1} max={maxQuantity} />
+              <button type="button" onClick={() => updateQuantity(quantity + 1)} disabled={quantity >= maxQuantity}>+</button>
+            </div>
+          </div>
+
           <div className="spec-grid buyer-spec-grid buyer-spec-grid-secondary">
             <div><small>Stok tersedia</small><strong>{activeVariant?.stock_qty ?? 0}</strong></div>
             <div><small>Berat</small><strong>{activeVariant?.weight_gram ?? 0} gram</strong></div>
             <div><small>SKU</small><strong>{activeVariant?.sku_variant || "-"}</strong></div>
           </div>
 
+          {localMessage && <div className="inline-success">{localMessage}</div>}
+
           <div className="modal-actions buyer-modal-actions">
-            <button className="btn-primary">Tambah ke Keranjang</button>
-            <button className="btn-primary">Checkout</button>
+            <button className="btn-primary" onClick={addToCart} disabled={!canBuy}>Tambah ke Keranjang</button>
+            <button className="btn-primary" onClick={checkoutNow} disabled={!canBuy}>Checkout</button>
             <button className="btn-secondary">Tanya via WhatsApp</button>
           </div>
         </section>

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Session } from "@supabase/supabase-js";
 import { BookOpen, Boxes, ChevronDown, ChevronRight, ClipboardList, ExternalLink, LogIn, LogOut, ShoppingBag } from "lucide-react";
+import { CART_UPDATED_EVENT, cartCount, requestOpenCart } from "../lib/cart";
 import { supabase } from "../lib/supabase";
 import { Profile } from "../types";
 
@@ -31,11 +32,18 @@ function buyerCatalogUrl() {
   return `${window.location.origin}${window.location.pathname}#/buyer`;
 }
 
-export function Layout({ children, session }: Props) {
+function isAdminProfile(profile: Profile | null) {
+  const role = String(profile?.role || "").toUpperCase();
+  return role === "ADMIN" || role === "SUPERADMIN";
+}
+
+export function Layout({ children, session, profile }: Props) {
   const [route, setRoute] = useState<Route>(getRoute());
   const [masterOpen, setMasterOpen] = useState(getRoute() === "master");
+  const [cartBadge, setCartBadge] = useState(() => cartCount());
 
-  const showSellerSidebar = ["seller", "products", "master", "orders"].includes(route);
+  const isAdmin = isAdminProfile(profile);
+  const showSellerSidebar = Boolean(session && isAdmin && ["seller", "products", "master", "orders"].includes(route));
 
   useEffect(() => {
     function onHashChange() {
@@ -47,6 +55,28 @@ export function Layout({ children, session }: Props) {
     window.addEventListener("hashchange", onHashChange);
     return () => window.removeEventListener("hashchange", onHashChange);
   }, []);
+
+  useEffect(() => {
+    function onCartUpdated() {
+      setCartBadge(cartCount());
+    }
+
+    window.addEventListener(CART_UPDATED_EVENT, onCartUpdated);
+    window.addEventListener("storage", onCartUpdated);
+
+    return () => {
+      window.removeEventListener(CART_UPDATED_EVENT, onCartUpdated);
+      window.removeEventListener("storage", onCartUpdated);
+    };
+  }, []);
+
+  function handleFloatingCart(event: React.MouseEvent<HTMLAnchorElement>) {
+    if (getRoute() === "buyer") {
+      event.preventDefault();
+      requestOpenCart();
+      return;
+    }
+  }
 
   async function logout() {
     await supabase.auth.signOut();
@@ -69,7 +99,7 @@ export function Layout({ children, session }: Props) {
   }
 
   return (
-    <div className="layout-clean-header layout-sidebar phase-2d-11">
+    <div className="layout-clean-header layout-sidebar phase-2d-12-admin-guard">
       <header className="topbar clean-topbar auth-topbar">
         <a className="brand" href="#/buyer">
           <div className="brand-mark">UO</div>
@@ -98,7 +128,7 @@ export function Layout({ children, session }: Props) {
         <div className="main-with-sidebar">
           <aside className="seller-sidebar">
             <div className="sidebar-title">
-              <strong>Menu Seller</strong>
+              <strong>Menu Admin</strong>
               <span>Manajemen toko</span>
             </div>
 
@@ -149,8 +179,9 @@ export function Layout({ children, session }: Props) {
         <main className="app-shell">{children}</main>
       )}
 
-      <a className="floating-cart" href="#/buyer" title="Keranjang belum aktif pada starter ini">
+      <a className="floating-cart" href="#/buyer" title="Buka keranjang" onClick={handleFloatingCart}>
         <ShoppingBag size={20} />
+        {cartBadge > 0 && <span className="floating-cart-count">{cartBadge}</span>}
       </a>
     </div>
   );

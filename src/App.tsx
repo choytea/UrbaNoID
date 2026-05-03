@@ -172,7 +172,7 @@ export default function App() {
       {route === "master" && <MasterDataPage />}
       {route === "products" && <ProductMatrixPage />}
       {route === "orders" && <OrdersPage />}
-      {route === "buyer" && <BuyerCatalog />}
+      {route === "buyer" && <BuyerCatalog session={session} profile={profile} />}
     </Layout>
   );
 }
