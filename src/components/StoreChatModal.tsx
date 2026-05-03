@@ -134,6 +134,10 @@ export function StoreChatModal({ open, session, profile, store, context, onClose
     }
 
     setMessages((data || []) as StoreChatMessage[]);
+
+    await supabase.rpc("mark_store_chat_read_for_buyer", { p_chat_id: chatId });
+    window.dispatchEvent(new CustomEvent("urbanoid-chat-badge-refresh"));
+
     setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 80);
   }
 
@@ -165,6 +169,7 @@ export function StoreChatModal({ open, session, profile, store, context, onClose
     }).eq("id", activeChat.id);
 
     await loadMessages(activeChat.id);
+    window.dispatchEvent(new CustomEvent("urbanoid-chat-badge-refresh"));
   }
 
   async function boot() {
@@ -226,6 +231,7 @@ export function StoreChatModal({ open, session, profile, store, context, onClose
 
     setText("");
     await loadMessages(activeChat.id);
+    window.dispatchEvent(new CustomEvent("urbanoid-chat-badge-refresh"));
   }
 
   if (!open) return null;

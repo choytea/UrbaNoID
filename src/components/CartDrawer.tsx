@@ -1,4 +1,4 @@
-import { X, Trash2 } from "lucide-react";
+import { MessageCircle, Trash2, X } from "lucide-react";
 import { CartItem, cartShippingCost, cartSubtotal, cartWeight } from "../lib/cart";
 import { formatCurrency } from "../lib/utils";
 
@@ -10,9 +10,10 @@ type Props = {
   onRemove: (itemId: string) => void;
   onClear: () => void;
   onCheckout: () => void;
+  onOpenStoreChat?: (item?: CartItem | null) => void;
 };
 
-export function CartDrawer({ open, items, onClose, onUpdateQuantity, onRemove, onClear, onCheckout }: Props) {
+export function CartDrawer({ open, items, onClose, onUpdateQuantity, onRemove, onClear, onCheckout, onOpenStoreChat }: Props) {
   if (!open) return null;
 
   const subtotal = cartSubtotal(items);
@@ -20,12 +21,13 @@ export function CartDrawer({ open, items, onClose, onUpdateQuantity, onRemove, o
   const shippingCost = cartShippingCost(items);
   const grandTotal = subtotal + shippingCost;
   const shippingLabel = items.find(item => item.shipping_name)?.shipping_name;
+  const firstItem = items[0] || null;
 
   return (
     <div className="cart-backdrop" onMouseDown={event => {
       if (event.target === event.currentTarget) onClose();
     }}>
-      <aside className="cart-drawer" onMouseDown={event => event.stopPropagation()}>
+      <aside className="cart-drawer phase-3b-4-cart-drawer" onMouseDown={event => event.stopPropagation()}>
         <div className="cart-head">
           <div>
             <h2>Keranjang Belanja</h2>
@@ -38,6 +40,9 @@ export function CartDrawer({ open, items, onClose, onUpdateQuantity, onRemove, o
           <div className="cart-empty">
             <strong>Keranjang masih kosong.</strong>
             <span>Pilih produk dari katalog, pilih ekspedisi, lalu klik Tambah ke Keranjang.</span>
+            <button className="btn-secondary cart-chat-btn" onClick={() => onOpenStoreChat?.(null)}>
+              <MessageCircle size={16} /> Chat Toko
+            </button>
           </div>
         ) : (
           <>
@@ -60,6 +65,10 @@ export function CartDrawer({ open, items, onClose, onUpdateQuantity, onRemove, o
                 </div>
               ))}
             </div>
+
+            <button className="btn-secondary cart-chat-btn" onClick={() => onOpenStoreChat?.(firstItem)}>
+              <MessageCircle size={16} /> Chat Toko tentang Keranjang
+            </button>
 
             <div className="cart-summary">
               <div><span>Subtotal</span><strong>{formatCurrency(subtotal)}</strong></div>

@@ -248,6 +248,38 @@ export function BuyerCatalog({ session = null, profile = null }: Props) {
     setCheckoutOpen(true);
   }
 
+  function openCartChat(item?: CartItem | null) {
+    setCartOpen(false);
+
+    if (!session) {
+      window.location.hash = "/buyer-register";
+      return;
+    }
+
+    if (!item) {
+      window.setTimeout(() => window.dispatchEvent(new CustomEvent("urbanoid-open-store-chat", {
+        detail: { source: "CART_DRAWER" }
+      })), 80);
+      return;
+    }
+
+    window.setTimeout(() => window.dispatchEvent(new CustomEvent("urbanoid-open-store-chat", {
+      detail: {
+        source: "CART_DRAWER",
+        product_id: item.product_id,
+        product_name: item.product_name,
+        sku_product: item.sku_product,
+        variant_id: item.variant_id,
+        sku_variant: item.sku_variant,
+        color_name: item.color_name,
+        size_name: item.size_name,
+        pattern_type: item.pattern_type,
+        price: item.unit_price,
+        image_url: item.image_url,
+      }
+    })), 80);
+  }
+
   function checkoutSuccess() {
     emptyCart();
     setNotice("Checkout berhasil. Pesanan sudah masuk ke seller.");
@@ -331,7 +363,16 @@ export function BuyerCatalog({ session = null, profile = null }: Props) {
         />
       )}
 
-      <CartDrawer open={cartOpen} items={cartItems} onClose={() => setCartOpen(false)} onUpdateQuantity={updateCartQuantity} onRemove={removeCartItem} onClear={emptyCart} onCheckout={checkoutFromCart} />
+      <CartDrawer
+        open={cartOpen}
+        items={cartItems}
+        onClose={() => setCartOpen(false)}
+        onUpdateQuantity={updateCartQuantity}
+        onRemove={removeCartItem}
+        onClear={emptyCart}
+        onCheckout={checkoutFromCart}
+        onOpenStoreChat={openCartChat}
+      />
 
       <CheckoutModal
         open={checkoutOpen}

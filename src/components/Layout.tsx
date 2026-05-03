@@ -45,6 +45,8 @@ type Route =
   | "users"
   | "login";
 
+const CHAT_BADGE_EVENT = "urbanoid-chat-badge-refresh";
+
 const masterMenuItems = [
   { key: "showcases", label: "Etalase" },
   { key: "categories", label: "Kategori" },
@@ -95,10 +97,17 @@ function profileInitial(profile: Profile | null) {
   return name.trim().charAt(0).toUpperCase() || "B";
 }
 
+function badgeLabel(count: number) {
+  return count > 99 ? "99+" : String(count);
+}
+
 export function Layout({ children, session, profile }: Props) {
   const [route, setRoute] = useState<Route>(getRoute());
   const [masterOpen, setMasterOpen] = useState(getRoute() === "master");
+  const [chatMenuOpen, setChatMenuOpen] = useState(getRoute() === "store-chat");
   const [cartBadge, setCartBadge] = useState(() => cartCount());
+  const [sellerChatUnread, setSellerChatUnread] = useState(0);
+  const [buyerChatUnread, setBuyerChatUnread] = useState(0);
   const [storeProfile, setStoreProfile] = useState<StoreProfile | null>(null);
   const [followed, setFollowed] = useState(false);
   const [infoOpen, setInfoOpen] = useState(false);
@@ -146,6 +155,25 @@ export function Layout({ children, session, profile }: Props) {
     setFollowed(!!data);
   }
 
+  async function loadChatBadges() {
+    if (!session?.user.id) {
+      setSellerChatUnread(0);
+      setBuyerChatUnread(0);
+      return;
+    }
+
+    if (isStaff) {
+      const { data, error } = await supabase.rpc("store_chat_unread_for_seller");
+      if (!error) setSellerChatUnread(Number(data || 0));
+      setBuyerChatUnread(0);
+      return;
+    }
+
+    const { data, error } = await supabase.rpc("store_chat_unread_for_buyer");
+    if (!error) setBuyerChatUnread(Number(data || 0));
+    setSellerChatUnread(0);
+  }
+
   useEffect(() => {
     void loadStoreProfile();
   }, []);
@@ -159,6 +187,7 @@ export function Layout({ children, session, profile }: Props) {
       const nextRoute = getRoute();
       setRoute(nextRoute);
       if (nextRoute === "master") setMasterOpen(true);
+      if (nextRoute === "store-chat") setChatMenuOpen(true);
     }
     window.addEventListener("hashchange", onHashChange);
     return () => window.removeEventListener("hashchange", onHashChange);
@@ -173,6 +202,22 @@ export function Layout({ children, session, profile }: Props) {
       window.removeEventListener("storage", onCartUpdated);
     };
   }, []);
+
+  useEffect(() => {
+    void loadChatBadges();
+
+    function refreshBadges() {
+      void loadChatBadges();
+    }
+
+    window.addEventListener(CHAT_BADGE_EVENT, refreshBadges);
+    const timer = window.setInterval(refreshBadges, 15000);
+
+    return () => {
+      window.removeEventListener(CHAT_BADGE_EVENT, refreshBadges);
+      window.clearInterval(timer);
+    };
+  }, [session?.user.id, isStaff]);
 
   function openCartFromHeader() {
     if (getRoute() === "buyer") {
@@ -201,6 +246,16 @@ export function Layout({ children, session, profile }: Props) {
       window.dispatchEvent(new CustomEvent("urbanoid-master-tab", { detail: tabKey }));
     }
     window.location.hash = "/master";
+  }
+
+  function openChatFilter(filter: "ALL" | "UNREAD" | "OPEN" | "CLOSED") {
+    localStorage.setItem("urbanoid_store_chat_filter", filter);
+    setChatMenuOpen(true);
+
+    if (getRoute() === "store-chat") {
+      window.dispatchEvent(new CustomEvent("urbanoid-store-chat-filter", { detail: filter }));
+    }
+    window.location.hash = "/store-chat";
   }
 
   async function toggleFollow() {
@@ -242,7 +297,7 @@ export function Layout({ children, session, profile }: Props) {
   }, [session?.user.id, isStaff, storeProfile?.id]);
 
   return (
-    <div className="layout-clean-header layout-sidebar phase-3b-2-buyer-header phase-3b-3-buyer-polish">
+    <div className="layout-clean-header layout-sidebar phase-3b-2-buyer-header phase-3b-3-buyer-polish phase-3b-4-chat-badge-accordion">
       <header className={`topbar clean-topbar auth-topbar ${showBuyerHeader ? "buyer-store-topbar" : ""}`} style={topbarStyle}>
         <a className="brand buyer-store-brand" href="#/buyer">
           {showBuyerHeader && storeProfile?.logo_url ? (
@@ -267,8 +322,9 @@ export function Layout({ children, session, profile }: Props) {
                 <Heart size={17} /> {followed ? "Mengikuti" : "Ikuti Toko"}
               </button>
 
-              <button type="button" className="header-auth-btn" onClick={() => openStoreChat(null)}>
+              <button type="button" className="header-auth-btn nav-badge-wrap" onClick={() => openStoreChat(null)}>
                 <MessageCircle size={17} /> Chat Toko
+                {buyerChatUnread > 0 && <span className="nav-badge">{badgeLabel(buyerChatUnread)}</span>}
               </button>
 
               <button type="button" className="header-auth-btn buyer-cart-header-btn" onClick={openCartFromHeader}>
@@ -303,7 +359,7 @@ export function Layout({ children, session, profile }: Props) {
 
       {showSellerSidebar ? (
         <div className="main-with-sidebar">
-          <aside className="seller-sidebar">
+          <aside className="seller-sidebar compact-seller-sidebar">
             <div className="sidebar-title">
               <strong>Menu Admin</strong>
               <span>Manajemen toko</span>
@@ -311,7 +367,7 @@ export function Layout({ children, session, profile }: Props) {
 
             <nav className="sidebar-nav">
               <a className={route === "products" ? "active" : ""} href="#/products">
-                <Boxes size={17} />
+                <Boxes size={16} />
                 <span>Buka Product Matrix</span>
               </a>
 
@@ -323,9 +379,9 @@ export function Layout({ children, session, profile }: Props) {
                   if (route !== "master") window.location.hash = "/master";
                 }}
               >
-                <BookOpen size={17} />
+                <BookOpen size={16} />
                 <span>Buka Master Data</span>
-                {masterOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                {masterOpen ? <ChevronDown size={15} /> : <ChevronRight size={15} />}
               </button>
 
               {masterOpen && (
@@ -339,34 +395,54 @@ export function Layout({ children, session, profile }: Props) {
               )}
 
               <a className={route === "orders" ? "active" : ""} href="#/orders">
-                <ClipboardList size={17} />
+                <ClipboardList size={16} />
                 <span>Pesanan</span>
               </a>
 
-              <a className={route === "store-chat" ? "active" : ""} href="#/store-chat">
-                <MessageCircle size={17} />
+              <button
+                type="button"
+                className={`sidebar-parent sidebar-chat-parent nav-badge-wrap ${route === "store-chat" ? "active" : ""}`}
+                onClick={() => {
+                  setChatMenuOpen(prev => !prev);
+                  if (route !== "store-chat") window.location.hash = "/store-chat";
+                }}
+              >
+                <MessageCircle size={16} />
                 <span>Chat Toko</span>
-              </a>
+                {sellerChatUnread > 0 && <span className="nav-badge sidebar-badge">{badgeLabel(sellerChatUnread)}</span>}
+                {chatMenuOpen ? <ChevronDown size={15} /> : <ChevronRight size={15} />}
+              </button>
+
+              {chatMenuOpen && (
+                <div className="sidebar-submenu chat-sidebar-submenu">
+                  <button type="button" onClick={() => openChatFilter("ALL")}>Semua Chat</button>
+                  <button type="button" onClick={() => openChatFilter("UNREAD")}>
+                    Belum Dibaca {sellerChatUnread > 0 ? `(${sellerChatUnread})` : ""}
+                  </button>
+                  <button type="button" onClick={() => openChatFilter("OPEN")}>Open</button>
+                  <button type="button" onClick={() => openChatFilter("CLOSED")}>Closed</button>
+                </div>
+              )}
 
               <a className={route === "shipping" ? "active" : ""} href="#/shipping">
-                <Truck size={17} />
+                <Truck size={16} />
                 <span>Ekspedisi</span>
               </a>
 
               <a className={route === "store-profile" ? "active" : ""} href="#/store-profile">
-                <Store size={17} />
+                <Store size={16} />
                 <span>Profil Toko</span>
               </a>
 
               {isAdmin && (
                 <a className={route === "users" ? "active" : ""} href="#/users">
-                  <Users size={17} />
+                  <Users size={16} />
                   <span>Pengguna & Role</span>
                 </a>
               )}
 
               <button type="button" onClick={openBuyerCatalogInNewTab}>
-                <ExternalLink size={17} />
+                <ExternalLink size={16} />
                 <span>Preview Buyer Catalog</span>
               </button>
             </nav>

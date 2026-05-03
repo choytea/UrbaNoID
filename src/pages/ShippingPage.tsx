@@ -106,6 +106,9 @@ export function ShippingPage() {
         <div>
           <h1>Ekspedisi</h1>
           <p>Kelola pilihan ekspedisi yang muncul saat buyer memasukkan keranjang atau checkout.</p>
+          <div className="info-box shipping-integration-note">
+            Integrasi resi otomatis bisa dibuat melalui Supabase Edge Function + API agregator ekspedisi seperti Biteship, RajaOngkir, Shipper, atau Shipdeo. Kunci API tidak boleh diletakkan di frontend.
+          </div>
         </div>
         <div className="button-row">
           <button onClick={load}>Refresh</button>
@@ -118,7 +121,7 @@ export function ShippingPage() {
 
       <div className="table-wrap">
         <table className="master-table">
-          <thead><tr><th>No</th><th>Ekspedisi</th><th>Layanan</th><th>Kode</th><th>Tarif Dasar</th><th>Estimasi</th><th>Status</th><th>Aksi</th></tr></thead>
+          <thead><tr><th>No</th><th>Ekspedisi</th><th>Layanan</th><th>Kode</th><th>Tarif Dasar</th><th>Estimasi</th><th>Integrasi</th><th>Status</th><th>Aksi</th></tr></thead>
           <tbody>
             {filtered.map((row, index) => (
               <tr key={row.id}>
@@ -128,6 +131,12 @@ export function ShippingPage() {
                 <td>{row.courier_code || "-"}</td>
                 <td>{formatCurrency(Number(row.base_cost || 0))}</td>
                 <td>{row.etd_text || "-"}</td>
+                <td>
+                  <span className={(row as any).supports_api_booking ? "status-pill active" : "status-pill inactive"}>
+                    {(row as any).supports_api_booking ? "API Ready" : "Manual"}
+                  </span>
+                  {(row as any).supports_label && <small className="shipping-mini-note">Label</small>}
+                </td>
                 <td><span className={row.is_active ? "status-pill active" : "status-pill inactive"}>{row.is_active ? "AKTIF" : "NONAKTIF"}</span></td>
                 <td className="action-cell">
                   <button onClick={() => openEdit(row)}>Edit</button>

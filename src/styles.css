@@ -4703,3 +4703,319 @@ button.danger {
     grid-template-columns: 1fr !important;
   }
 }
+
+
+/* ============================================================
+   Phase 3B.4: Chat Badge, Seller Accordions, Shipping Label Foundation
+   ============================================================ */
+
+.nav-badge-wrap {
+  position: relative;
+}
+
+.nav-badge {
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: #ef4444;
+  color: #fff;
+  display: inline-grid;
+  place-items: center;
+  font-size: 11px;
+  font-weight: 1000;
+  line-height: 1;
+  border: 2px solid rgba(255,255,255,.8);
+}
+
+.header-auth-btn .nav-badge {
+  margin-left: 2px;
+}
+
+.sidebar-badge {
+  margin-left: auto;
+  margin-right: 4px;
+}
+
+.inline-chat-badge {
+  border-color: #ffffff;
+}
+
+.compact-seller-sidebar {
+  max-width: 250px;
+}
+
+.compact-seller-sidebar .sidebar-title {
+  padding-bottom: 12px;
+  margin-bottom: 12px;
+}
+
+.compact-seller-sidebar .sidebar-title strong {
+  font-size: 18px;
+}
+
+.compact-seller-sidebar .sidebar-title span {
+  font-size: 12px;
+}
+
+.compact-seller-sidebar .sidebar-nav {
+  gap: 8px;
+}
+
+.compact-seller-sidebar .sidebar-nav a,
+.compact-seller-sidebar .sidebar-nav button,
+.compact-seller-sidebar .sidebar-parent {
+  min-height: 42px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  font-size: 13px;
+  gap: 9px;
+}
+
+.compact-seller-sidebar .sidebar-submenu {
+  margin: -3px 0 4px 18px;
+  padding-left: 10px;
+  gap: 6px;
+}
+
+.compact-seller-sidebar .sidebar-submenu button {
+  min-height: 34px;
+  padding: 8px 10px;
+  border-radius: 11px;
+  font-size: 12px;
+}
+
+.chat-sidebar-submenu {
+  border-left: 3px solid #bfdbfe;
+}
+
+.phase-3b-4-store-chat-admin .compact-section-title h1 {
+  font-size: 30px;
+}
+
+.chat-admin-toolbar {
+  grid-template-columns: minmax(260px, 1fr) 220px;
+  gap: 10px;
+}
+
+.compact-chat-workspace {
+  grid-template-columns: 340px minmax(0, 1fr);
+  gap: 12px;
+}
+
+.chat-accordion-list {
+  gap: 8px;
+}
+
+.chat-list-card {
+  padding: 12px;
+  border-radius: 14px;
+  gap: 4px;
+}
+
+.chat-list-card strong {
+  font-size: 14px;
+}
+
+.chat-list-card span,
+.chat-list-card small,
+.chat-list-card em {
+  font-size: 11px;
+  line-height: 1.25;
+}
+
+.chat-list-headline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.compact-order-detail-head {
+  padding-bottom: 10px;
+  margin-bottom: 10px;
+}
+
+.compact-order-detail-head h2 {
+  font-size: 26px;
+}
+
+.compact-chat-product-context {
+  padding: 7px 9px;
+  border-radius: 10px;
+}
+
+.compact-admin-store-chat-box {
+  max-height: 430px;
+  padding: 10px;
+}
+
+.compact-admin-store-chat-box .store-chat-bubble {
+  padding: 9px 10px;
+  border-radius: 12px;
+  max-width: 74%;
+}
+
+.compact-admin-store-chat-box .store-chat-bubble span {
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.compact-admin-store-chat-box .store-chat-bubble small {
+  font-size: 10px;
+}
+
+.compact-store-chat-input {
+  grid-template-columns: 1fr 80px;
+  gap: 8px;
+}
+
+.compact-store-chat-input input,
+.compact-store-chat-input button {
+  min-height: 44px;
+  border-radius: 12px;
+}
+
+.phase-3b-4-cart-drawer .cart-chat-btn {
+  width: 100%;
+  min-height: 44px;
+  border-radius: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin: 8px 0 10px;
+  color: #0f172a;
+}
+
+.shipping-integration-note {
+  margin-top: 8px;
+  max-width: 920px;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.shipping-mini-note {
+  display: block;
+  margin-top: 4px;
+  color: #64748b;
+  font-size: 11px;
+}
+
+.showcase-accordion-group {
+  border: 1px solid #dbe4ee;
+  border-radius: 18px;
+  background: #ffffff;
+  overflow: hidden;
+  margin-bottom: 12px;
+}
+
+.showcase-accordion-head {
+  width: 100%;
+  border: 0;
+  background: linear-gradient(90deg, #dbeafe, #eff6ff);
+  color: #0f172a;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  text-align: left;
+}
+
+.showcase-accordion-head.open {
+  background: linear-gradient(90deg, #bbf7d0, #ecfdf5);
+}
+
+.showcase-accordion-icon {
+  width: 26px;
+  height: 26px;
+  border-radius: 9px;
+  display: grid;
+  place-items: center;
+  background: #ffffff;
+  border: 1px solid #93c5fd;
+  color: #2563eb;
+  font-weight: 1000;
+  flex: 0 0 auto;
+}
+
+.showcase-accordion-head strong {
+  display: block;
+  font-size: 14px;
+}
+
+.showcase-accordion-head small {
+  display: block;
+  margin-top: 2px;
+  color: #475569;
+  font-size: 11px;
+}
+
+.showcase-accordion-group .matrix-item {
+  border: 0;
+  border-top: 1px solid #dbe4ee;
+  border-radius: 0;
+  margin: 0;
+}
+
+.product-crud-panel .matrix-parent-crud {
+  padding: 10px 12px;
+  font-size: 12px;
+  gap: 10px;
+}
+
+.product-crud-panel .matrix-parent-crud .parent-main strong {
+  font-size: 14px;
+}
+
+.product-crud-panel .matrix-parent-crud small,
+.product-crud-panel .matrix-parent-crud span {
+  font-size: 11px;
+  line-height: 1.22;
+}
+
+.product-crud-panel .action-stack button {
+  padding: 7px 10px;
+  border-radius: 10px;
+  font-size: 12px;
+}
+
+.product-crud-panel .variant-head {
+  padding: 10px 12px;
+}
+
+.product-crud-panel .variant-head h3 {
+  font-size: 18px;
+}
+
+.product-crud-panel .variant-head p {
+  font-size: 12px;
+}
+
+.product-crud-panel .variant-table th,
+.product-crud-panel .variant-table td {
+  padding: 9px 10px;
+  font-size: 12px;
+}
+
+@media (max-width: 900px) {
+  .chat-admin-toolbar,
+  .compact-chat-workspace {
+    grid-template-columns: 1fr;
+  }
+
+  .compact-seller-sidebar {
+    max-width: none;
+  }
+
+  .compact-admin-store-chat-box .store-chat-bubble {
+    max-width: 92%;
+  }
+
+  .product-crud-panel .matrix-parent-crud {
+    min-width: 980px;
+  }
+
+  .showcase-accordion-head {
+    min-width: 980px;
+  }
+}

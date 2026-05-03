@@ -251,6 +251,7 @@ export function ProductMatrixPage() {
   });
 
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const [showcaseExpanded, setShowcaseExpanded] = useState<Record<string, boolean>>({});
   const [collapsedColors, setCollapsedColors] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -1099,6 +1100,24 @@ async function uploadColorImages(
   }
 
   const activeProducts = useMemo(() => products, [products]);
+
+  const showcaseGroups = useMemo(() => {
+    const map = new Map<string, { key: string; name: string; products: ProductRow[]; totalVariants: number; totalStock: number }>();
+
+    activeProducts.forEach(product => {
+      const name = relName(product.showcases) || "Tanpa Etalase";
+      const key = `${product.showcase_id || "no-showcase"}::${name}`;
+      const list = variantsOf(product.id);
+      const current = map.get(key) || { key, name, products: [], totalVariants: 0, totalStock: 0 };
+      current.products.push(product);
+      current.totalVariants += list.length;
+      current.totalStock += list.reduce((sum, item) => sum + Number(item.stock_qty || 0), 0);
+      map.set(key, current);
+    });
+
+    return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
+  }, [activeProducts, variants]);
+
   const toolbarProduct = activeProducts[0] || null;
   const toastMessage = error || notice || (saving ? "Menyimpan..." : "");
 
@@ -1127,7 +1146,23 @@ async function uploadColorImages(
       {error && <div className="error-box">{error}</div>}
 
       <div className="matrix">
-        {activeProducts.map(product => {
+        {showcaseGroups.map(group => {
+          const isShowcaseOpen = showcaseExpanded[group.key] ?? false;
+          return (
+            <div className="showcase-accordion-group" key={group.key}>
+              <button
+                type="button"
+                className={`showcase-accordion-head ${isShowcaseOpen ? "open" : ""}`}
+                onClick={() => setShowcaseExpanded(prev => ({ ...prev, [group.key]: !isShowcaseOpen }))}
+              >
+                <span className="showcase-accordion-icon">{isShowcaseOpen ? "−" : "+"}</span>
+                <span>
+                  <strong>Etalase: {group.name}</strong>
+                  <small>{group.products.length} produk · {group.totalVariants} varian · stok {group.totalStock}</small>
+                </span>
+              </button>
+
+              {isShowcaseOpen && group.products.map(product => {
           const list = variantsOf(product.id);
           const isOpen = expanded[product.id] ?? true;
           const stock = list.reduce((sum, item) => sum + Number(item.stock_qty || 0), 0);
@@ -1379,6 +1414,9 @@ async function uploadColorImages(
                   </div>
                 </div>
               )}
+            </div>
+          );
+        })}
             </div>
           );
         })}
@@ -1696,11 +1734,3 @@ function VariantModal({
     </div>
   );
 }
-
-
-
-
-
-
-
-
