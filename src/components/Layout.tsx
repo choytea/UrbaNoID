@@ -19,7 +19,7 @@ import {
 } from "lucide-react";
 import { CART_UPDATED_EVENT, cartCount, requestOpenCart } from "../lib/cart";
 import { supabase } from "../lib/supabase";
-import { Profile, StoreProfile } from "../types";
+import { Profile, StoreChatContext, StoreProfile } from "../types";
 import { StoreInfoModal } from "./StoreInfoModal";
 import { StoreChatModal } from "./StoreChatModal";
 
@@ -90,6 +90,11 @@ function isAdminProfile(profile: Profile | null) {
   return role === "ADMIN" || role === "SUPERADMIN";
 }
 
+function profileInitial(profile: Profile | null) {
+  const name = profile?.full_name || profile?.username || profile?.email || "B";
+  return name.trim().charAt(0).toUpperCase() || "B";
+}
+
 export function Layout({ children, session, profile }: Props) {
   const [route, setRoute] = useState<Route>(getRoute());
   const [masterOpen, setMasterOpen] = useState(getRoute() === "master");
@@ -98,19 +103,20 @@ export function Layout({ children, session, profile }: Props) {
   const [followed, setFollowed] = useState(false);
   const [infoOpen, setInfoOpen] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
+  const [chatContext, setChatContext] = useState<StoreChatContext | null>(null);
 
   const isStaff = isStaffProfile(profile);
   const isAdmin = isAdminProfile(profile);
   const sellerRoutes = ["seller", "products", "master", "orders", "shipping", "store-profile", "store-chat", "users"];
   const showSellerSidebar = Boolean(session && isStaff && sellerRoutes.includes(route));
-  const isBuyerSurface = !showSellerSidebar;
+  const showBuyerHeader = !showSellerSidebar && route !== "seller-login";
 
   const topbarStyle = useMemo(() => {
-    if (!isBuyerSurface || !storeProfile?.banner_url) return undefined;
+    if (!showBuyerHeader || !storeProfile?.banner_url) return undefined;
     return {
-      backgroundImage: `linear-gradient(90deg, rgba(15,23,42,.92), rgba(15,23,42,.68)), url(${storeProfile.banner_url})`,
+      backgroundImage: `linear-gradient(90deg, rgba(15,23,42,.93), rgba(15,23,42,.62)), url(${storeProfile.banner_url})`,
     } as React.CSSProperties;
-  }, [isBuyerSurface, storeProfile?.banner_url]);
+  }, [showBuyerHeader, storeProfile?.banner_url]);
 
   async function loadStoreProfile() {
     const { data } = await supabase
@@ -168,11 +174,14 @@ export function Layout({ children, session, profile }: Props) {
     };
   }, []);
 
-  function handleFloatingCart(event: React.MouseEvent<HTMLAnchorElement>) {
+  function openCartFromHeader() {
     if (getRoute() === "buyer") {
-      event.preventDefault();
       requestOpenCart();
+      return;
     }
+
+    window.location.hash = "/buyer";
+    window.setTimeout(() => requestOpenCart(), 350);
   }
 
   async function logout() {
@@ -212,20 +221,31 @@ export function Layout({ children, session, profile }: Props) {
     setFollowed(true);
   }
 
-  function openStoreChat() {
+  function openStoreChat(context?: StoreChatContext | null) {
     if (!session?.user.id || isStaff) {
       window.location.hash = "/buyer-register";
       return;
     }
+    setChatContext(context || null);
     setInfoOpen(false);
     setChatOpen(true);
   }
 
+  useEffect(() => {
+    function onOpenStoreChat(event: Event) {
+      const detail = (event as CustomEvent<StoreChatContext>).detail || null;
+      openStoreChat(detail);
+    }
+
+    window.addEventListener("urbanoid-open-store-chat", onOpenStoreChat as EventListener);
+    return () => window.removeEventListener("urbanoid-open-store-chat", onOpenStoreChat as EventListener);
+  }, [session?.user.id, isStaff, storeProfile?.id]);
+
   return (
-    <div className="layout-clean-header layout-sidebar phase-3b-2-buyer-header">
-      <header className={`topbar clean-topbar auth-topbar ${isBuyerSurface ? "buyer-store-topbar" : ""}`} style={topbarStyle}>
+    <div className="layout-clean-header layout-sidebar phase-3b-2-buyer-header phase-3b-3-buyer-polish">
+      <header className={`topbar clean-topbar auth-topbar ${showBuyerHeader ? "buyer-store-topbar" : ""}`} style={topbarStyle}>
         <a className="brand buyer-store-brand" href="#/buyer">
-          {isBuyerSurface && storeProfile?.logo_url ? (
+          {showBuyerHeader && storeProfile?.logo_url ? (
             <img className="brand-logo-img" src={storeProfile.logo_url} alt={storeProfile.store_name || "UrbaNoiD"} />
           ) : (
             <div className="brand-mark">UO</div>
@@ -237,7 +257,7 @@ export function Layout({ children, session, profile }: Props) {
         </a>
 
         <div className="header-auth-actions buyer-header-actions">
-          {isBuyerSurface && (
+          {showBuyerHeader && (
             <>
               <button type="button" className="header-auth-btn" onClick={() => setInfoOpen(true)}>
                 <Info size={17} /> Info Toko
@@ -247,15 +267,28 @@ export function Layout({ children, session, profile }: Props) {
                 <Heart size={17} /> {followed ? "Mengikuti" : "Ikuti Toko"}
               </button>
 
-              <button type="button" className="header-auth-btn" onClick={openStoreChat}>
+              <button type="button" className="header-auth-btn" onClick={() => openStoreChat(null)}>
                 <MessageCircle size={17} /> Chat Toko
+              </button>
+
+              <button type="button" className="header-auth-btn buyer-cart-header-btn" onClick={openCartFromHeader}>
+                <ShoppingBag size={17} /> Keranjang {cartBadge > 0 ? `(${cartBadge})` : ""}
               </button>
             </>
           )}
 
-          {session && !isStaff && <a className="header-auth-btn" href="#/buyer-profile">Profil Buyer</a>}
+          {session && !isStaff && (
+            <a className="header-auth-btn profile-header-btn" href="#/buyer-profile">
+              {profile?.avatar_url ? (
+                <img src={profile.avatar_url} alt={profile.full_name || "Profil Buyer"} />
+              ) : (
+                <span className="profile-header-initial">{profileInitial(profile)}</span>
+              )}
+              <span>Profil Buyer</span>
+            </a>
+          )}
 
-          {!session && isBuyerSurface && (
+          {!session && showBuyerHeader && (
             <a className="header-auth-btn" href="#/buyer-login"><LogIn size={17} /> Login Buyer</a>
           )}
 
@@ -345,18 +378,13 @@ export function Layout({ children, session, profile }: Props) {
         <main className="app-shell">{children}</main>
       )}
 
-      <a className="floating-cart" href="#/buyer" title="Buka keranjang" onClick={handleFloatingCart}>
-        <ShoppingBag size={20} />
-        {cartBadge > 0 && <span className="floating-cart-count">{cartBadge}</span>}
-      </a>
-
       <StoreInfoModal
         open={infoOpen}
         store={storeProfile}
         followed={followed}
         onClose={() => setInfoOpen(false)}
         onFollowToggle={toggleFollow}
-        onOpenChat={openStoreChat}
+        onOpenChat={() => openStoreChat(null)}
       />
 
       <StoreChatModal
@@ -364,6 +392,7 @@ export function Layout({ children, session, profile }: Props) {
         session={session}
         profile={profile}
         store={storeProfile}
+        context={chatContext}
         onClose={() => setChatOpen(false)}
       />
     </div>

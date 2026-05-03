@@ -113,7 +113,10 @@ export function BuyerCatalog({ session = null, profile = null }: Props) {
       const detail = (event as CustomEvent<CartItem[]>).detail;
       setCartItems(Array.isArray(detail) ? detail : readCart());
     }
-    function onOpenCart() { setCartOpen(true); }
+
+    function onOpenCart() {
+      setCartOpen(true);
+    }
 
     window.addEventListener(CART_UPDATED_EVENT, onCartUpdated as EventListener);
     window.addEventListener(CART_OPEN_EVENT, onOpenCart);
@@ -191,6 +194,27 @@ export function BuyerCatalog({ session = null, profile = null }: Props) {
     setCheckoutOpen(true);
   }
 
+  function openProductChat(product: BuyerCatalogProduct, variant: CatalogVariant) {
+    setSelectedProduct(null);
+    window.setTimeout(() => {
+      window.dispatchEvent(new CustomEvent("urbanoid-open-store-chat", {
+        detail: {
+          source: "PRODUCT_DETAIL",
+          product_id: product.product_id,
+          product_name: product.product_name,
+          sku_product: product.sku_product,
+          variant_id: variant.variant_id,
+          sku_variant: variant.sku_variant,
+          color_name: variant.color_name,
+          size_name: variant.size_name,
+          pattern_type: variant.pattern_type,
+          price: Number(variant.final_price || variant.base_price || product.min_price || 0),
+          image_url: product.primary_image_url,
+        }
+      }));
+    }, 80);
+  }
+
   function updateCartQuantity(itemId: string, quantity: number) {
     const next = cartItems
       .map(item => {
@@ -232,7 +256,7 @@ export function BuyerCatalog({ session = null, profile = null }: Props) {
 
   return (
     <>
-      <section className="hero compact">
+      <section className="hero compact buyer-hero-polished">
         <h1>{storeProfile?.tagline || "Lebih dari sekadar kaos. Ini adalah cara kamu bergerak dengan identitasmu."}</h1>
         <div className="search-row">
           <input value={query} onChange={e => setQuery(e.target.value)} placeholder="Cari produk, bahan, gramasi, model, warna, kategori..." />
@@ -246,7 +270,7 @@ export function BuyerCatalog({ session = null, profile = null }: Props) {
         </div>
       </section>
 
-      <section className="filter-panel">
+      <section className="filter-panel buyer-filter-polished">
         <div>
           <h2>Filter Produk</h2>
           <p>Saring katalog agar pembeli lebih cepat menemukan produk.</p>
@@ -255,15 +279,12 @@ export function BuyerCatalog({ session = null, profile = null }: Props) {
           {showcases.map(s => <option key={s}>{s}</option>)}
         </select>
         <button onClick={() => { loadProducts(); loadSupportData(); }}>Refresh Katalog</button>
-        <button className="btn-primary cart-filter-button" onClick={() => setCartOpen(true)}>
-          Keranjang ({cartItems.reduce((sum, item) => sum + item.quantity, 0)})
-        </button>
       </section>
 
       {notice && <div className="success-box buyer-notice">{notice}</div>}
 
       <section>
-        <div className="section-title">
+        <div className="section-title buyer-catalog-title">
           <div>
             <h2>Katalog Produk</h2>
             <p>{loading ? "Memuat produk..." : `${filtered.length} dari ${products.length} produk tampil`}</p>
@@ -272,9 +293,9 @@ export function BuyerCatalog({ session = null, profile = null }: Props) {
 
         {error && <div className="error-box">{error}</div>}
 
-        <div className="product-grid">
+        <div className="product-grid buyer-product-grid">
           {filtered.map(product => (
-            <article className="product-card" key={product.product_id}>
+            <article className="product-card buyer-product-card" key={product.product_id}>
               <button className="card-image" onClick={() => setSelectedProduct(product)}>
                 <img src={product.primary_image_url || "https://placehold.co/900x1200/111827/ffffff?text=UrbaNoiD"} alt={product.product_name} />
                 <div className="card-badges">
@@ -303,6 +324,7 @@ export function BuyerCatalog({ session = null, profile = null }: Props) {
           onClose={() => setSelectedProduct(null)}
           onAddToCart={addToCart}
           onCheckoutNow={checkoutNow}
+          onOpenStoreChat={openProductChat}
           shippingOptions={shippingOptions}
           selectedShippingId={selectedShippingId}
           onShippingChange={setSelectedShippingId}

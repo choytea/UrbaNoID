@@ -122,6 +122,9 @@ export function CheckoutModal({
 
     const { data, error } = await supabase.rpc("buyer_checkout", {
       p_customer: { name: customerName, email: customerEmail, phone: customerPhone },
+      p_items: payloadItems,
+      p_notes: notes,
+      p_payment_method: paymentMethod,
       p_shipping: {
         expedition_id: selectedShipping?.id || items[0]?.shipping_expedition_id || null,
         expedition_name: selectedShipping?.name || items[0]?.shipping_name || null,
@@ -134,15 +137,12 @@ export function CheckoutModal({
         postal_code: postalCode,
         shipping_cost: Number(shippingCost || 0),
       },
-      p_items: payloadItems,
-      p_payment_method: paymentMethod,
-      p_notes: notes,
     });
 
     if (error) {
       setMessage(
         error.message.includes("function buyer_checkout")
-          ? "Fungsi checkout belum aktif. Jalankan SQL Phase 3A/3B di Supabase SQL Editor."
+          ? "Fungsi checkout belum sinkron. Jalankan SQL 18_phase3b_3_checkout_rpc_store_chat_context.sql di Supabase SQL Editor, lalu refresh aplikasi."
           : error.message
       );
       setSaving(false);

@@ -7,6 +7,7 @@ type Props = {
   onClose: () => void;
   onAddToCart?: (product: BuyerCatalogProduct, variant: CatalogVariant, quantity: number, shipping: ShippingExpedition | null) => void;
   onCheckoutNow?: (product: BuyerCatalogProduct, variant: CatalogVariant, quantity: number, shipping: ShippingExpedition | null) => void;
+  onOpenStoreChat?: (product: BuyerCatalogProduct, variant: CatalogVariant) => void;
   shippingOptions?: ShippingExpedition[];
   selectedShippingId?: string;
   onShippingChange?: (shippingId: string) => void;
@@ -72,6 +73,7 @@ export function ProductDetailModal({
   onClose,
   onAddToCart,
   onCheckoutNow,
+  onOpenStoreChat,
   shippingOptions = [],
   selectedShippingId = "",
   onShippingChange,
@@ -220,6 +222,15 @@ export function ProductDetailModal({
     onCheckoutNow?.(product, activeVariant, quantity, selectedShipping);
   }
 
+  function openProductStoreChat() {
+    if (!activeVariant) {
+      setLocalMessage("Pilih varian terlebih dahulu sebelum chat toko.");
+      return;
+    }
+
+    onOpenStoreChat?.(product, activeVariant);
+  }
+
   const descriptionSrcDoc = product.description ? descriptionFrameHtml(product.description) : "";
 
   return (
@@ -321,7 +332,7 @@ export function ProductDetailModal({
           <div className="modal-actions buyer-modal-actions">
             <button className="btn-primary" onClick={addToCart} disabled={!canBuy}>Tambah ke Keranjang</button>
             <button className="btn-primary" onClick={checkoutNow} disabled={!canBuy}>Checkout</button>
-            <button className="btn-secondary">Tanya via WhatsApp</button>
+            <button className="btn-secondary" type="button" onClick={openProductStoreChat}>Chat Toko</button>
           </div>
         </section>
       </div>

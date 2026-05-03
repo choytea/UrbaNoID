@@ -1,13 +1,14 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Session } from "@supabase/supabase-js";
 import { supabase } from "../lib/supabase";
-import { Profile, StoreChat, StoreChatMessage, StoreProfile } from "../types";
+import { Profile, StoreChat, StoreChatContext, StoreChatMessage, StoreProfile } from "../types";
 
 type Props = {
   open: boolean;
   session: Session | null;
   profile: Profile | null;
   store: StoreProfile | null;
+  context?: StoreChatContext | null;
   onClose: () => void;
 };
 
@@ -16,12 +17,32 @@ function formatDate(value: string) {
   return Number.isNaN(date.getTime()) ? "" : date.toLocaleString("id-ID");
 }
 
-export function StoreChatModal({ open, session, profile, store, onClose }: Props) {
+function formatProductContext(context?: StoreChatContext | null) {
+  if (!context?.product_name) return "";
+  const variant = [context.color_name, context.size_name, context.pattern_type].filter(Boolean).join(" / ");
+  const sku = context.sku_variant || context.sku_product || "";
+  return [
+    `Produk: ${context.product_name}`,
+    variant ? `Varian: ${variant}` : "",
+    sku ? `SKU: ${sku}` : "",
+  ].filter(Boolean).join(" · ");
+}
+
+export function StoreChatModal({ open, session, profile, store, context, onClose }: Props) {
   const [chat, setChat] = useState<StoreChat | null>(null);
   const [messages, setMessages] = useState<StoreChatMessage[]>([]);
   const [text, setText] = useState("");
   const [notice, setNotice] = useState("");
   const bottomRef = useRef<HTMLDivElement | null>(null);
+  const autoSentRef = useRef<string>("");
+
+  const contextLabel = useMemo(() => formatProductContext(context), [context]);
+  const contextKey = useMemo(() => [
+    context?.source || "",
+    context?.product_id || "",
+    context?.variant_id || "",
+    context?.sku_variant || "",
+  ].join("|"), [context]);
 
   async function ensureChat() {
     if (!session?.user.id || !store?.id) return null;
@@ -38,9 +59,45 @@ export function StoreChatModal({ open, session, profile, store, onClose }: Props
       return null;
     }
 
+    const subject = context?.product_name
+      ? `Tanya Produk: ${context.product_name}`
+      : `Chat ${profile?.full_name || profile?.username || session.user.email || "Buyer"}`;
+
+    const productPatch = context?.product_name ? {
+      subject,
+      product_id: context.product_id || null,
+      product_name: context.product_name || null,
+      sku_product: context.sku_product || null,
+      variant_id: context.variant_id || null,
+      sku_variant: context.sku_variant || null,
+      color_name: context.color_name || null,
+      size_name: context.size_name || null,
+      pattern_type: context.pattern_type || null,
+      image_url: context.image_url || null,
+      status: "OPEN",
+      updated_at: new Date().toISOString(),
+    } : {
+      subject,
+      status: "OPEN",
+      updated_at: new Date().toISOString(),
+    };
+
     if (existing) {
-      setChat(existing as StoreChat);
-      return existing as StoreChat;
+      const { data: updated, error: updateError } = await supabase
+        .from("store_chats")
+        .update(productPatch)
+        .eq("id", existing.id)
+        .select("*")
+        .single();
+
+      if (updateError) {
+        setNotice(updateError.message);
+        setChat(existing as StoreChat);
+        return existing as StoreChat;
+      }
+
+      setChat(updated as StoreChat);
+      return updated as StoreChat;
     }
 
     const { data: inserted, error: insertError } = await supabase
@@ -48,8 +105,7 @@ export function StoreChatModal({ open, session, profile, store, onClose }: Props
       .insert({
         store_id: store.id,
         buyer_id: session.user.id,
-        subject: `Chat ${profile?.full_name || profile?.username || session.user.email || "Buyer"}`,
-        status: "OPEN",
+        ...productPatch,
         last_message: null,
         last_message_at: new Date().toISOString(),
       })
@@ -81,17 +137,54 @@ export function StoreChatModal({ open, session, profile, store, onClose }: Props
     setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 80);
   }
 
+  async function sendProductIntro(activeChat: StoreChat) {
+    if (!session?.user.id || !context?.product_name) return;
+
+    const key = `${activeChat.id}:${contextKey}`;
+    if (autoSentRef.current === key) return;
+    autoSentRef.current = key;
+
+    const body = `Halo, saya ingin bertanya tentang ${formatProductContext(context)}.`;
+
+    const { error } = await supabase.from("store_chat_messages").insert({
+      chat_id: activeChat.id,
+      sender_id: session.user.id,
+      sender_role: "BUYER",
+      message: body,
+    });
+
+    if (error) {
+      setNotice(error.message);
+      return;
+    }
+
+    await supabase.from("store_chats").update({
+      last_message: body,
+      last_message_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    }).eq("id", activeChat.id);
+
+    await loadMessages(activeChat.id);
+  }
+
   async function boot() {
     setNotice("");
     const activeChat = await ensureChat();
-    if (activeChat?.id) await loadMessages(activeChat.id);
+    if (!activeChat?.id) return;
+
+    if (context?.product_name) {
+      await sendProductIntro(activeChat);
+      return;
+    }
+
+    await loadMessages(activeChat.id);
   }
 
   useEffect(() => {
     if (!open) return;
     if (!session) return;
     void boot();
-  }, [open, session?.user.id, store?.id]);
+  }, [open, session?.user.id, store?.id, contextKey]);
 
   useEffect(() => {
     if (!open || !chat?.id) return;
@@ -161,10 +254,10 @@ export function StoreChatModal({ open, session, profile, store, onClose }: Props
       <div className="store-chat-modal" onMouseDown={event => event.stopPropagation()}>
         <button className="modal-close" onClick={onClose}>×</button>
         <div className="store-chat-head">
-          <img src={store?.logo_url || "https://placehold.co/96x96/111827/ffffff?text=UO"} alt={store?.store_name || "Toko"} />
+          <img src={context?.image_url || store?.logo_url || "https://placehold.co/96x96/111827/ffffff?text=UO"} alt={store?.store_name || "Toko"} />
           <div>
             <h2>Chat Toko</h2>
-            <p>{store?.store_name || "UrbaNoiD Official Store"}</p>
+            <p>{contextLabel || store?.store_name || "UrbaNoiD Official Store"}</p>
           </div>
         </div>
 

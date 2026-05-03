@@ -117,6 +117,21 @@ export type BuyerCatalogProduct = {
   videos: CatalogVideo[];
 };
 
+export type StoreChatContext = {
+  source?: "STORE_HEADER" | "PRODUCT_DETAIL" | string;
+  product_id?: string | null;
+  product_name?: string | null;
+  sku_product?: string | null;
+  variant_id?: string | null;
+  sku_variant?: string | null;
+  color_name?: string | null;
+  size_name?: string | null;
+  pattern_type?: string | null;
+  price?: number | null;
+  image_url?: string | null;
+};
+
+
 export type OrderMessage = {
   id: string;
   order_id: string;
@@ -133,6 +148,15 @@ export type StoreChat = {
   buyer_id: string;
   subject: string | null;
   status: string | null;
+  product_id?: string | null;
+  product_name?: string | null;
+  sku_product?: string | null;
+  variant_id?: string | null;
+  sku_variant?: string | null;
+  color_name?: string | null;
+  size_name?: string | null;
+  pattern_type?: string | null;
+  image_url?: string | null;
   last_message: string | null;
   last_message_at: string | null;
   created_at: string;

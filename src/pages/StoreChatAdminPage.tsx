@@ -165,6 +165,8 @@ export function StoreChatAdminPage() {
               <button key={chat.id} className={selectedChat?.id === chat.id ? "order-list-card active" : "order-list-card"} onClick={() => setSelectedChat(chat)}>
                 <strong>{buyer?.full_name || buyer?.username || buyer?.email || "Buyer"}</strong>
                 <span>{chat.subject || "Chat Toko"}</span>
+                {chat.product_name && <small>Produk: {chat.product_name}</small>}
+                {chat.sku_variant && <small>SKU: {chat.sku_variant}</small>}
                 <em>{chat.status || "OPEN"}</em>
                 <small>{chat.last_message || "Belum ada pesan"}</small>
                 <small>{formatDate(chat.last_message_at || chat.created_at)}</small>
@@ -183,6 +185,13 @@ export function StoreChatAdminPage() {
                 <div>
                   <h2>{selectedBuyer?.full_name || selectedBuyer?.username || selectedBuyer?.email || "Buyer"}</h2>
                   <p>{selectedBuyer?.email || "-"} · {selectedBuyer?.phone || "-"}</p>
+                  {selectedChat.product_name && (
+                    <div className="chat-product-context">
+                      <strong>{selectedChat.product_name}</strong>
+                      <span>{[selectedChat.color_name, selectedChat.size_name, selectedChat.pattern_type].filter(Boolean).join(" / ") || "-"}</span>
+                      <small>{selectedChat.sku_variant || selectedChat.sku_product || "-"}</small>
+                    </div>
+                  )}
                 </div>
                 <div className="button-row">
                   {selectedChat.status === "CLOSED" ? (
