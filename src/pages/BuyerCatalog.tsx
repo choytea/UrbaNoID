@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Session } from "@supabase/supabase-js";
 import { supabase } from "../lib/supabase";
-import { BuyerCatalogProduct, CatalogVariant, CatalogVideo, Profile } from "../types";
+import { BuyerCatalogProduct, CatalogVariant, CatalogVideo, Profile, ShippingExpedition, StoreProfile } from "../types";
 import { formatCurrency } from "../lib/utils";
 import { ProductDetailModal } from "../components/ProductDetailModal";
 import { CartDrawer } from "../components/CartDrawer";
@@ -12,9 +12,12 @@ import {
   CartItem,
   addOrMergeCartItem,
   clearCart,
+  clearPendingBuyerAction,
   makeCartItem,
   readCart,
+  readPendingBuyerAction,
   saveCart,
+  savePendingBuyerAction,
 } from "../lib/cart";
 
 type Props = {
@@ -24,10 +27,13 @@ type Props = {
 
 export function BuyerCatalog({ session = null, profile = null }: Props) {
   const [products, setProducts] = useState<BuyerCatalogProduct[]>([]);
+  const [shippingOptions, setShippingOptions] = useState<ShippingExpedition[]>([]);
+  const [storeProfile, setStoreProfile] = useState<StoreProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
   const [selectedShowcase, setSelectedShowcase] = useState("Semua");
   const [selectedProduct, setSelectedProduct] = useState<BuyerCatalogProduct | null>(null);
+  const [selectedShippingId, setSelectedShippingId] = useState("");
   const [error, setError] = useState("");
   const [cartItems, setCartItems] = useState<CartItem[]>(() => readCart());
   const [cartOpen, setCartOpen] = useState(false);
@@ -71,19 +77,35 @@ export function BuyerCatalog({ session = null, profile = null }: Props) {
     }
 
     const videoList = videoTableMissing ? [] : ((videos || []) as CatalogVideo[]);
-
-    setProducts(
-      baseProducts.map(product => ({
-        ...product,
-        videos: videoList.filter(video => video.product_id === product.product_id),
-      }))
-    );
-
+    setProducts(baseProducts.map(product => ({ ...product, videos: videoList.filter(video => video.product_id === product.product_id) })));
     setLoading(false);
+  }
+
+  async function loadSupportData() {
+    const { data: expeditions } = await supabase
+      .from("shipping_expeditions")
+      .select("*")
+      .eq("is_active", true)
+      .order("display_order", { ascending: true });
+
+    const activeExpeditions = (expeditions || []) as ShippingExpedition[];
+    setShippingOptions(activeExpeditions);
+    if (!selectedShippingId && activeExpeditions[0]) setSelectedShippingId(activeExpeditions[0].id);
+
+    const { data: store } = await supabase
+      .from("store_profiles")
+      .select("*")
+      .eq("is_active", true)
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+
+    if (store) setStoreProfile(store as StoreProfile);
   }
 
   useEffect(() => {
     loadProducts();
+    loadSupportData();
   }, []);
 
   useEffect(() => {
@@ -91,48 +113,78 @@ export function BuyerCatalog({ session = null, profile = null }: Props) {
       const detail = (event as CustomEvent<CartItem[]>).detail;
       setCartItems(Array.isArray(detail) ? detail : readCart());
     }
-
-    function onOpenCart() {
-      setCartOpen(true);
-    }
+    function onOpenCart() { setCartOpen(true); }
 
     window.addEventListener(CART_UPDATED_EVENT, onCartUpdated as EventListener);
     window.addEventListener(CART_OPEN_EVENT, onOpenCart);
-
     return () => {
       window.removeEventListener(CART_UPDATED_EVENT, onCartUpdated as EventListener);
       window.removeEventListener(CART_OPEN_EVENT, onOpenCart);
     };
   }, []);
 
+  useEffect(() => {
+    const pending = readPendingBuyerAction();
+    if (!session || !pending || products.length === 0) return;
+
+    const product = products.find(item => item.product_id === pending.product_id);
+    const variant = product?.variants.find(item => item.variant_id === pending.variant_id);
+    const shipping = shippingOptions.find(item => item.id === pending.shipping_expedition_id) || shippingOptions[0] || null;
+
+    if (!product || !variant) return;
+
+    clearPendingBuyerAction();
+    if (pending.type === "ADD_TO_CART") {
+      addToCart(product, variant, pending.quantity, shipping);
+    } else {
+      checkoutNow(product, variant, pending.quantity, shipping);
+    }
+  }, [session, products, shippingOptions]);
+
   const showcases = useMemo(() => ["Semua", ...Array.from(new Set(products.map(p => p.showcase_name).filter(Boolean))) as string[]], [products]);
 
   const filtered = products.filter(p => {
     const q = query.trim().toLowerCase();
-    const matchQuery = !q || [
-      p.product_name,
-      p.sku_product,
-      p.category_name,
-      p.showcase_name,
-      p.material_name,
-      p.gramasi
-    ].filter(Boolean).some(v => String(v).toLowerCase().includes(q));
-
+    const matchQuery = !q || [p.product_name, p.sku_product, p.category_name, p.showcase_name, p.material_name, p.gramasi]
+      .filter(Boolean)
+      .some(v => String(v).toLowerCase().includes(q));
     const matchShowcase = selectedShowcase === "Semua" || p.showcase_name === selectedShowcase;
-
     return matchQuery && matchShowcase;
   });
 
-  function addToCart(product: BuyerCatalogProduct, variant: CatalogVariant, quantity: number) {
-    const item = makeCartItem(product, variant, quantity);
+  function requireBuyerRegistration(product: BuyerCatalogProduct, variant: CatalogVariant, quantity: number, actionType: "ADD_TO_CART" | "CHECKOUT_NOW", shipping: ShippingExpedition | null) {
+    savePendingBuyerAction({
+      type: actionType,
+      product_id: product.product_id,
+      variant_id: variant.variant_id,
+      quantity,
+      shipping_expedition_id: shipping?.id || selectedShippingId || null,
+      created_at: new Date().toISOString(),
+    });
+
+    setSelectedProduct(null);
+    setNotice("Silakan registrasi/login buyer terlebih dahulu untuk melanjutkan pesanan.");
+    window.location.hash = "/buyer-register";
+  }
+
+  function addToCart(product: BuyerCatalogProduct, variant: CatalogVariant, quantity: number, shipping: ShippingExpedition | null) {
+    if (!session) {
+      requireBuyerRegistration(product, variant, quantity, "ADD_TO_CART", shipping);
+      return;
+    }
+    const item = makeCartItem(product, variant, quantity, shipping);
     const next = addOrMergeCartItem(item, cartItems);
     setCartItems(next);
     setNotice(`${product.product_name} berhasil ditambahkan ke keranjang.`);
     setCartOpen(true);
   }
 
-  function checkoutNow(product: BuyerCatalogProduct, variant: CatalogVariant, quantity: number) {
-    const item = makeCartItem(product, variant, quantity);
+  function checkoutNow(product: BuyerCatalogProduct, variant: CatalogVariant, quantity: number, shipping: ShippingExpedition | null) {
+    if (!session) {
+      requireBuyerRegistration(product, variant, quantity, "CHECKOUT_NOW", shipping);
+      return;
+    }
+    const item = makeCartItem(product, variant, quantity, shipping);
     saveCart([item]);
     setCartItems([item]);
     setSelectedProduct(null);
@@ -147,7 +199,6 @@ export function BuyerCatalog({ session = null, profile = null }: Props) {
         return { ...item, quantity: Math.max(1, Math.min(Number(quantity || 1), maxStock)) };
       })
       .filter(item => item.quantity > 0);
-
     saveCart(next);
     setCartItems(next);
   }
@@ -164,6 +215,11 @@ export function BuyerCatalog({ session = null, profile = null }: Props) {
   }
 
   function checkoutFromCart() {
+    if (!session) {
+      setCartOpen(false);
+      window.location.hash = "/buyer-register";
+      return;
+    }
     setCartOpen(false);
     setCheckoutOpen(true);
   }
@@ -176,8 +232,20 @@ export function BuyerCatalog({ session = null, profile = null }: Props) {
 
   return (
     <>
+      {storeProfile && (
+        <section className="store-public-card">
+          {storeProfile.logo_url && <img src={storeProfile.logo_url} alt={storeProfile.store_name} />}
+          <div>
+            <strong>{storeProfile.store_name}</strong>
+            <span>{storeProfile.tagline || "Premium Urban Apparel"}</span>
+            <small>{[storeProfile.city, storeProfile.province].filter(Boolean).join(", ")}</small>
+          </div>
+          <a href="#/buyer-profile">Profil Buyer</a>
+        </section>
+      )}
+
       <section className="hero compact">
-        <h1>Lebih dari sekadar kaos. Ini adalah cara kamu bergerak dengan identitasmu.</h1>
+        <h1>{storeProfile?.tagline || "Lebih dari sekadar kaos. Ini adalah cara kamu bergerak dengan identitasmu."}</h1>
         <div className="search-row">
           <input value={query} onChange={e => setQuery(e.target.value)} placeholder="Cari produk, bahan, gramasi, model, warna, kategori..." />
           <button className="btn-primary">Cari Produk</button>
@@ -198,7 +266,7 @@ export function BuyerCatalog({ session = null, profile = null }: Props) {
         <select value={selectedShowcase} onChange={e => setSelectedShowcase(e.target.value)}>
           {showcases.map(s => <option key={s}>{s}</option>)}
         </select>
-        <button onClick={loadProducts}>Refresh Katalog</button>
+        <button onClick={() => { loadProducts(); loadSupportData(); }}>Refresh Katalog</button>
         <button className="btn-primary cart-filter-button" onClick={() => setCartOpen(true)}>
           Keranjang ({cartItems.reduce((sum, item) => sum + item.quantity, 0)})
         </button>
@@ -247,24 +315,22 @@ export function BuyerCatalog({ session = null, profile = null }: Props) {
           onClose={() => setSelectedProduct(null)}
           onAddToCart={addToCart}
           onCheckoutNow={checkoutNow}
+          shippingOptions={shippingOptions}
+          selectedShippingId={selectedShippingId}
+          onShippingChange={setSelectedShippingId}
         />
       )}
 
-      <CartDrawer
-        open={cartOpen}
-        items={cartItems}
-        onClose={() => setCartOpen(false)}
-        onUpdateQuantity={updateCartQuantity}
-        onRemove={removeCartItem}
-        onClear={emptyCart}
-        onCheckout={checkoutFromCart}
-      />
+      <CartDrawer open={cartOpen} items={cartItems} onClose={() => setCartOpen(false)} onUpdateQuantity={updateCartQuantity} onRemove={removeCartItem} onClear={emptyCart} onCheckout={checkoutFromCart} />
 
       <CheckoutModal
         open={checkoutOpen}
         items={cartItems}
         session={session}
         profile={profile}
+        shippingOptions={shippingOptions}
+        selectedShippingId={selectedShippingId}
+        onShippingChange={setSelectedShippingId}
         onClose={() => setCheckoutOpen(false)}
         onSuccess={checkoutSuccess}
       />

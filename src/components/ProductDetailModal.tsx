@@ -1,37 +1,27 @@
 import { useMemo, useState } from "react";
-import { BuyerCatalogProduct, CatalogImage, CatalogVariant, CatalogVideo } from "../types";
+import { BuyerCatalogProduct, CatalogImage, CatalogVariant, CatalogVideo, ShippingExpedition } from "../types";
 import { formatCurrency } from "../lib/utils";
 
 type Props = {
   product: BuyerCatalogProduct;
   onClose: () => void;
-  onAddToCart?: (product: BuyerCatalogProduct, variant: CatalogVariant, quantity: number) => void;
-  onCheckoutNow?: (product: BuyerCatalogProduct, variant: CatalogVariant, quantity: number) => void;
+  onAddToCart?: (product: BuyerCatalogProduct, variant: CatalogVariant, quantity: number, shipping: ShippingExpedition | null) => void;
+  onCheckoutNow?: (product: BuyerCatalogProduct, variant: CatalogVariant, quantity: number, shipping: ShippingExpedition | null) => void;
+  shippingOptions?: ShippingExpedition[];
+  selectedShippingId?: string;
+  onShippingChange?: (shippingId: string) => void;
 };
 
-type GalleryImage = CatalogImage & {
-  color_name?: string;
+type GalleryImage = CatalogImage & { color_name?: string };
+type GalleryMedia = {
+  type: "image" | "video";
+  key: string;
+  url: string;
+  color_name: string;
+  alt_text: string;
+  sort_order: number;
+  is_primary: boolean;
 };
-
-type GalleryMedia =
-  | {
-      type: "image";
-      key: string;
-      url: string;
-      color_name: string;
-      alt_text: string;
-      sort_order: number;
-      is_primary: boolean;
-    }
-  | {
-      type: "video";
-      key: string;
-      url: string;
-      color_name: string;
-      alt_text: string;
-      sort_order: number;
-      is_primary: boolean;
-    };
 
 function normalizeText(value: string | null | undefined) {
   return String(value || "").trim().toLowerCase();
@@ -48,50 +38,21 @@ function escapeHtml(value: string | null | undefined) {
 
 function descriptionFrameHtml(description: string) {
   const safe = escapeHtml(description);
-
-  return `<!doctype html>
-<html>
-<head>
-<meta charset="utf-8" />
+  return `<!doctype html><html><head><meta charset="utf-8" />
 <style>
-  * { box-sizing: border-box; }
-  html, body {
-    margin: 0;
-    padding: 0;
-    min-width: 100%;
-    min-height: 100%;
-    background: #f8fafc;
-    color: #475569;
-    font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-    font-size: 12.5px;
-    font-weight: 700;
-    line-height: 1.5;
-    overflow: auto;
-  }
-  .wrap {
-    min-width: 520px;
-    padding: 10px 12px;
-    white-space: pre-wrap;
-  }
-</style>
-</head>
-<body>
-  <div class="wrap">${safe}</div>
-</body>
-</html>`;
+*{box-sizing:border-box}html,body{margin:0;padding:0;min-width:100%;min-height:100%;background:#f8fafc;color:#475569;font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-size:12.5px;font-weight:700;line-height:1.5;overflow:auto}.wrap{min-width:520px;padding:10px 12px;white-space:pre-wrap}
+</style></head><body><div class="wrap">${safe}</div></body></html>`;
 }
 
 function uniqueGalleryImages(images: GalleryImage[], fallbackUrl: string | null, fallbackAlt: string) {
   const seen = new Set<string>();
   const result: GalleryImage[] = [];
-
   images.forEach((img, index) => {
     const key = img.image_url || img.image_id || String(index);
     if (!key || seen.has(key)) return;
     seen.add(key);
     result.push(img);
   });
-
   if (!result.length && fallbackUrl) {
     result.push({
       image_id: "fallback",
@@ -103,11 +64,18 @@ function uniqueGalleryImages(images: GalleryImage[], fallbackUrl: string | null,
       alt_text: fallbackAlt,
     });
   }
-
   return result;
 }
 
-export function ProductDetailModal({ product, onClose, onAddToCart, onCheckoutNow }: Props) {
+export function ProductDetailModal({
+  product,
+  onClose,
+  onAddToCart,
+  onCheckoutNow,
+  shippingOptions = [],
+  selectedShippingId = "",
+  onShippingChange,
+}: Props) {
   const variants = Array.isArray(product.variants) ? product.variants : [];
   const rawImages = Array.isArray(product.images) ? product.images : [];
   const rawVideos = Array.isArray(product.videos) ? product.videos : [];
@@ -116,37 +84,23 @@ export function ProductDetailModal({ product, onClose, onAddToCart, onCheckoutNo
 
   const variantColors = variants.map(v => v.color_name).filter(Boolean) as string[];
   const videoColors = rawVideos.map(v => v.color_name).filter(Boolean) as string[];
-
-  const colors = useMemo(
-    () => Array.from(new Set([...variantColors, ...videoColors])) as string[],
-    [variants, rawVideos]
-  );
+  const colors = useMemo(() => Array.from(new Set([...variantColors, ...videoColors])) as string[], [variants, rawVideos]);
 
   function colorFromImage(img: CatalogImage): string {
     const byVariant = variants.find(v => v.variant_id === img.variant_id);
     if (byVariant?.color_name) return byVariant.color_name;
-
     const byColorId = variants.find(v => (v as any).color_id && (v as any).color_id === img.color_id);
     if (byColorId?.color_name) return byColorId.color_name;
-
     const alt = normalizeText(img.alt_text);
-    const byAlt = colors.find(color => alt.includes(normalizeText(color)));
-    if (byAlt) return byAlt;
-
-    return "";
+    return colors.find(color => alt.includes(normalizeText(color))) || "";
   }
 
   function colorFromVideo(video: CatalogVideo): string {
     if (video.color_name) return video.color_name;
-
     const byColorId = variants.find(v => (v as any).color_id && (v as any).color_id === video.color_id);
     if (byColorId?.color_name) return byColorId.color_name;
-
     const title = normalizeText(video.title);
-    const byTitle = colors.find(color => title.includes(normalizeText(color)));
-    if (byTitle) return byTitle;
-
-    return "";
+    return colors.find(color => title.includes(normalizeText(color))) || "";
   }
 
   const galleryMedia = useMemo<GalleryMedia[]>(() => {
@@ -158,9 +112,7 @@ export function ProductDetailModal({ product, onClose, onAddToCart, onCheckoutNo
         return Number(a.sort_order || 0) - Number(b.sort_order || 0);
       });
 
-    const uniqueImages = uniqueGalleryImages(enrichedImages, product.primary_image_url, product.product_name);
-
-    const imageItems: GalleryMedia[] = uniqueImages.map((img, index) => ({
+    const imageItems: GalleryMedia[] = uniqueGalleryImages(enrichedImages, product.primary_image_url, product.product_name).map((img, index) => ({
       type: "image",
       key: img.image_id || img.image_url || `image-${index}`,
       url: img.image_url,
@@ -203,35 +155,26 @@ export function ProductDetailModal({ product, onClose, onAddToCart, onCheckoutNo
   const currentMedia = galleryMedia[Math.min(mediaIndex, Math.max(galleryMedia.length - 1, 0))];
   const maxQuantity = Math.max(1, Number(activeVariant?.stock_qty || 0));
   const canBuy = !!activeVariant && Number(activeVariant.stock_qty || 0) > 0;
+  const selectedShipping = shippingOptions.find(item => item.id === selectedShippingId) || null;
 
-  function syncColorFromMedia(index: number) {
-    const media = galleryMedia[index];
-    const nextColor = media?.color_name;
-
+  function chooseMedia(index: number) {
+    setMediaIndex(index);
+    const nextColor = galleryMedia[index]?.color_name;
     if (!nextColor || nextColor === selectedColor) return;
-
     setSelectedColor(nextColor);
-
     const first = variants.find(v => v.color_name === nextColor);
     if (first) setSelectedVariantId(first.variant_id);
   }
 
-  function chooseMedia(index: number) {
-    setMediaIndex(index);
-    syncColorFromMedia(index);
-  }
-
   function moveMedia(direction: number) {
     if (!galleryMedia.length) return;
-    const next = (mediaIndex + direction + galleryMedia.length) % galleryMedia.length;
-    chooseMedia(next);
+    chooseMedia((mediaIndex + direction + galleryMedia.length) % galleryMedia.length);
   }
 
   function chooseColor(color: string) {
     setSelectedColor(color);
     const first = variants.find(v => v.color_name === color);
     setSelectedVariantId(first?.variant_id || "");
-
     const firstMediaIndex = galleryMedia.findIndex(media => media.color_name === color);
     if (firstMediaIndex >= 0) setMediaIndex(firstMediaIndex);
     setQuantity(1);
@@ -241,9 +184,7 @@ export function ProductDetailModal({ product, onClose, onAddToCart, onCheckoutNo
   function changeVariant(variantId: string) {
     setSelectedVariantId(variantId);
     const variant = variants.find(v => v.variant_id === variantId);
-    if (variant?.color_name && variant.color_name !== selectedColor) {
-      chooseColor(variant.color_name);
-    }
+    if (variant?.color_name && variant.color_name !== selectedColor) chooseColor(variant.color_name);
     setQuantity(1);
     setLocalMessage("");
   }
@@ -252,13 +193,21 @@ export function ProductDetailModal({ product, onClose, onAddToCart, onCheckoutNo
     setQuantity(Math.max(1, Math.min(Number(value || 1), maxQuantity)));
   }
 
+  function validateShipping() {
+    if (shippingOptions.length > 0 && !selectedShipping) {
+      setLocalMessage("Pilih ekspedisi pengiriman terlebih dahulu.");
+      return false;
+    }
+    return true;
+  }
+
   function addToCart() {
     if (!activeVariant || !canBuy) {
       setLocalMessage("Varian ini sedang kosong.");
       return;
     }
-
-    onAddToCart?.(product, activeVariant, quantity);
+    if (!validateShipping()) return;
+    onAddToCart?.(product, activeVariant, quantity, selectedShipping);
     setLocalMessage("Produk berhasil masuk keranjang.");
   }
 
@@ -267,36 +216,22 @@ export function ProductDetailModal({ product, onClose, onAddToCart, onCheckoutNo
       setLocalMessage("Varian ini sedang kosong.");
       return;
     }
-
-    onCheckoutNow?.(product, activeVariant, quantity);
+    if (!validateShipping()) return;
+    onCheckoutNow?.(product, activeVariant, quantity, selectedShipping);
   }
 
   const descriptionSrcDoc = product.description ? descriptionFrameHtml(product.description) : "";
 
   return (
-    <div
-      className="modal-backdrop buyer-modal-backdrop"
-      onClick={event => {
-        if (event.target === event.currentTarget) onClose();
-      }}
-    >
+    <div className="modal-backdrop buyer-modal-backdrop" onClick={event => { if (event.target === event.currentTarget) onClose(); }}>
       <div className="product-modal buyer-product-modal" onClick={event => event.stopPropagation()}>
         <button className="modal-close" onClick={onClose}>×</button>
 
         <section className="modal-gallery buyer-modal-gallery">
           {currentMedia?.type === "video" ? (
-            <video
-              className="buyer-main-video"
-              src={currentMedia.url}
-              controls
-              playsInline
-              preload="metadata"
-            />
+            <video className="buyer-main-video" src={currentMedia.url} controls playsInline preload="metadata" />
           ) : (
-            <img
-              src={currentMedia?.url || product.primary_image_url || ""}
-              alt={currentMedia?.alt_text || product.product_name}
-            />
+            <img src={currentMedia?.url || product.primary_image_url || ""} alt={currentMedia?.alt_text || product.product_name} />
           )}
 
           {galleryMedia.length > 1 && (
@@ -331,14 +266,7 @@ export function ProductDetailModal({ product, onClose, onAddToCart, onCheckoutNo
           <h2>{product.product_name}</h2>
           <div className="price">{formatCurrency(activeVariant?.final_price || product.min_price || 0)}</div>
 
-          {product.description && (
-            <iframe
-              className="product-description-frame"
-              title="Detail Produk"
-              srcDoc={descriptionSrcDoc}
-              sandbox=""
-            />
-          )}
+          {product.description && <iframe className="product-description-frame" title="Detail Produk" srcDoc={descriptionSrcDoc} sandbox="" />}
 
           <div className="spec-grid buyer-spec-grid">
             <div><small>Bahan</small><strong>{product.material_name || "-"}</strong></div>
@@ -347,23 +275,28 @@ export function ProductDetailModal({ product, onClose, onAddToCart, onCheckoutNo
           </div>
 
           <hr />
-
-          <h3>Pilih varian & jumlah</h3>
+          <h3>Pilih varian, ekspedisi & jumlah</h3>
 
           <label>Warna produk</label>
           <div className="color-pills">
             {colors.map(color => (
-              <button key={color} className={selectedColor === color ? "active" : ""} onClick={() => chooseColor(color)}>
-                {color}
-              </button>
+              <button key={color} className={selectedColor === color ? "active" : ""} onClick={() => chooseColor(color)}>{color}</button>
             ))}
           </div>
 
           <label>Ukuran / Pola</label>
           <select value={activeVariant?.variant_id || selectedVariantId} onChange={e => changeVariant(e.target.value)}>
             {variantOptions.map(v => (
-              <option key={v.variant_id} value={v.variant_id}>
-                {v.size_name} / {v.pattern_type} — {formatCurrency(v.final_price)}
+              <option key={v.variant_id} value={v.variant_id}>{v.size_name} / {v.pattern_type} — {formatCurrency(v.final_price)}</option>
+            ))}
+          </select>
+
+          <label>Ekspedisi Pengiriman</label>
+          <select value={selectedShippingId} onChange={e => onShippingChange?.(e.target.value)}>
+            <option value="">{shippingOptions.length ? "- Pilih Ekspedisi -" : "Ekspedisi belum tersedia"}</option>
+            {shippingOptions.map(option => (
+              <option key={option.id} value={option.id}>
+                {option.name}{option.service_name ? ` / ${option.service_name}` : ""} — {formatCurrency(option.base_cost || 0)} {option.etd_text ? `(${option.etd_text})` : ""}
               </option>
             ))}
           </select>

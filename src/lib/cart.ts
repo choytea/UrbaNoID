@@ -1,8 +1,18 @@
-import { BuyerCatalogProduct, CatalogVariant } from "../types";
+import { BuyerCatalogProduct, CatalogVariant, ShippingExpedition } from "../types";
 
 export const CART_STORAGE_KEY = "urbanoid_cart_v1";
 export const CART_UPDATED_EVENT = "urbanoid-cart-updated";
 export const CART_OPEN_EVENT = "urbanoid-cart-open";
+export const PENDING_BUYER_ACTION_KEY = "urbanoid_pending_buyer_action_v1";
+
+export type PendingBuyerAction = {
+  type: "ADD_TO_CART" | "CHECKOUT_NOW";
+  product_id: string;
+  variant_id: string;
+  quantity: number;
+  shipping_expedition_id?: string | null;
+  created_at: string;
+};
 
 export type CartItem = {
   id: string;
@@ -19,9 +29,18 @@ export type CartItem = {
   weight_gram: number;
   image_url: string | null;
   stock_qty: number;
+  shipping_expedition_id?: string | null;
+  shipping_name?: string | null;
+  shipping_service?: string | null;
+  shipping_cost?: number;
 };
 
-export function makeCartItem(product: BuyerCatalogProduct, variant: CatalogVariant, quantity: number): CartItem {
+export function makeCartItem(
+  product: BuyerCatalogProduct,
+  variant: CatalogVariant,
+  quantity: number,
+  shipping?: ShippingExpedition | null
+): CartItem {
   return {
     id: `${product.product_id}:${variant.variant_id}`,
     product_id: product.product_id,
@@ -37,6 +56,10 @@ export function makeCartItem(product: BuyerCatalogProduct, variant: CatalogVaria
     weight_gram: Number(variant.weight_gram || 0),
     image_url: product.primary_image_url,
     stock_qty: Number(variant.stock_qty || 0),
+    shipping_expedition_id: shipping?.id || null,
+    shipping_name: shipping?.name || null,
+    shipping_service: shipping?.service_name || null,
+    shipping_cost: Number(shipping?.base_cost || 0),
   };
 }
 
@@ -44,10 +67,8 @@ export function readCart(): CartItem[] {
   try {
     const raw = localStorage.getItem(CART_STORAGE_KEY);
     if (!raw) return [];
-
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
-
     return parsed
       .filter(item => item && item.variant_id && Number(item.quantity || 0) > 0)
       .map(item => ({
@@ -56,6 +77,7 @@ export function readCart(): CartItem[] {
         unit_price: Number(item.unit_price || 0),
         weight_gram: Number(item.weight_gram || 0),
         stock_qty: Number(item.stock_qty || 0),
+        shipping_cost: Number(item.shipping_cost || 0),
       }));
   } catch {
     return [];
@@ -83,6 +105,10 @@ export function cartWeight(items = readCart()) {
   return items.reduce((sum, item) => sum + Number(item.quantity || 0) * Number(item.weight_gram || 0), 0);
 }
 
+export function cartShippingCost(items = readCart()) {
+  return Number(items.find(item => item.shipping_expedition_id)?.shipping_cost || 0);
+}
+
 export function addOrMergeCartItem(newItem: CartItem, current = readCart()) {
   const next = [...current];
   const index = next.findIndex(item => item.id === newItem.id);
@@ -105,4 +131,24 @@ export function addOrMergeCartItem(newItem: CartItem, current = readCart()) {
 
 export function requestOpenCart() {
   window.dispatchEvent(new CustomEvent(CART_OPEN_EVENT));
+}
+
+export function savePendingBuyerAction(action: PendingBuyerAction) {
+  localStorage.setItem(PENDING_BUYER_ACTION_KEY, JSON.stringify(action));
+}
+
+export function readPendingBuyerAction(): PendingBuyerAction | null {
+  try {
+    const raw = localStorage.getItem(PENDING_BUYER_ACTION_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed?.type || !parsed?.product_id || !parsed?.variant_id) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+export function clearPendingBuyerAction() {
+  localStorage.removeItem(PENDING_BUYER_ACTION_KEY);
 }

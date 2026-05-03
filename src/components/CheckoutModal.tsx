@@ -1,15 +1,18 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Session } from "@supabase/supabase-js";
 import { supabase } from "../lib/supabase";
-import { CartItem, cartSubtotal, cartWeight } from "../lib/cart";
+import { CartItem, cartShippingCost, cartSubtotal, cartWeight } from "../lib/cart";
 import { formatCurrency } from "../lib/utils";
-import { Profile } from "../types";
+import { Profile, ShippingExpedition } from "../types";
 
 type Props = {
   open: boolean;
   items: CartItem[];
   session: Session | null;
   profile: Profile | null;
+  shippingOptions: ShippingExpedition[];
+  selectedShippingId: string;
+  onShippingChange: (shippingId: string) => void;
   onClose: () => void;
   onSuccess: () => void;
 };
@@ -20,7 +23,17 @@ type CheckoutResult = {
   grand_total?: number;
 };
 
-export function CheckoutModal({ open, items, session, profile, onClose, onSuccess }: Props) {
+export function CheckoutModal({
+  open,
+  items,
+  session,
+  profile,
+  shippingOptions,
+  selectedShippingId,
+  onShippingChange,
+  onClose,
+  onSuccess
+}: Props) {
   const [customerName, setCustomerName] = useState(profile?.full_name || profile?.username || "");
   const [customerEmail, setCustomerEmail] = useState(profile?.email || session?.user.email || "");
   const [customerPhone, setCustomerPhone] = useState(profile?.phone || "");
@@ -30,33 +43,56 @@ export function CheckoutModal({ open, items, session, profile, onClose, onSucces
   const [province, setProvince] = useState(profile?.province || "");
   const [postalCode, setPostalCode] = useState(profile?.postal_code || "");
   const [paymentMethod, setPaymentMethod] = useState("BANK_TRANSFER");
-  const [shippingCost, setShippingCost] = useState(0);
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [result, setResult] = useState<CheckoutResult | null>(null);
 
+  const selectedShipping = shippingOptions.find(item => item.id === selectedShippingId) || null;
   const subtotal = useMemo(() => cartSubtotal(items), [items]);
   const weight = useMemo(() => cartWeight(items), [items]);
+  const shippingCost = selectedShipping ? Number(selectedShipping.base_cost || 0) : cartShippingCost(items);
   const grandTotal = subtotal + Number(shippingCost || 0);
+
+  useEffect(() => {
+    if (!selectedShippingId && items[0]?.shipping_expedition_id) {
+      onShippingChange(items[0].shipping_expedition_id);
+    }
+  }, [items, selectedShippingId, onShippingChange]);
+
+  useEffect(() => {
+    setCustomerName(profile?.full_name || profile?.username || "");
+    setCustomerEmail(profile?.email || session?.user.email || "");
+    setCustomerPhone(profile?.phone || "");
+    setAddress(profile?.address_line || "");
+    setDistrict(profile?.district || "");
+    setCity(profile?.city || "");
+    setProvince(profile?.province || "");
+    setPostalCode(profile?.postal_code || "");
+  }, [profile, session]);
 
   if (!open) return null;
 
-  function openLogin() {
+  function openRegister() {
     onClose();
-    window.location.hash = "/login";
+    window.location.hash = "/buyer-register";
   }
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
 
     if (!session) {
-      setMessage("Silakan login/register sebagai buyer terlebih dahulu sebelum checkout.");
+      setMessage("Silakan registrasi/login buyer terlebih dahulu sebelum checkout.");
       return;
     }
 
     if (!items.length) {
       setMessage("Keranjang masih kosong.");
+      return;
+    }
+
+    if (shippingOptions.length > 0 && !selectedShipping) {
+      setMessage("Pilih ekspedisi pengiriman terlebih dahulu.");
       return;
     }
 
@@ -85,12 +121,12 @@ export function CheckoutModal({ open, items, session, profile, onClose, onSucces
     }));
 
     const { data, error } = await supabase.rpc("buyer_checkout", {
-      p_customer: {
-        name: customerName,
-        email: customerEmail,
-        phone: customerPhone,
-      },
+      p_customer: { name: customerName, email: customerEmail, phone: customerPhone },
       p_shipping: {
+        expedition_id: selectedShipping?.id || items[0]?.shipping_expedition_id || null,
+        expedition_name: selectedShipping?.name || items[0]?.shipping_name || null,
+        service_name: selectedShipping?.service_name || items[0]?.shipping_service || null,
+        courier_code: selectedShipping?.courier_code || null,
         address,
         district,
         city,
@@ -106,7 +142,7 @@ export function CheckoutModal({ open, items, session, profile, onClose, onSucces
     if (error) {
       setMessage(
         error.message.includes("function buyer_checkout")
-          ? "Fungsi checkout belum aktif. Jalankan SQL Phase 3A di Supabase SQL Editor."
+          ? "Fungsi checkout belum aktif. Jalankan SQL Phase 3A/3B di Supabase SQL Editor."
           : error.message
       );
       setSaving(false);
@@ -135,25 +171,16 @@ export function CheckoutModal({ open, items, session, profile, onClose, onSucces
 
         {!session ? (
           <div className="checkout-login-required">
-            <h3>Login diperlukan</h3>
-            <p>Checkout hanya bisa dilakukan setelah pembeli login/register. Keranjang tetap tersimpan di browser ini.</p>
-            <button className="btn-primary" onClick={openLogin}>Login / Register</button>
+            <h3>Registrasi Buyer Diperlukan</h3>
+            <p>Untuk menjaga data pesanan, checkout hanya bisa dilakukan setelah buyer register dan login.</p>
+            <button className="btn-primary" onClick={openRegister}>Registrasi / Login Buyer</button>
           </div>
         ) : (
           <form onSubmit={submit}>
             <div className="checkout-grid">
-              <label>
-                Nama Penerima
-                <input value={customerName} onChange={e => setCustomerName(e.target.value)} required />
-              </label>
-              <label>
-                Email
-                <input value={customerEmail} onChange={e => setCustomerEmail(e.target.value)} type="email" required />
-              </label>
-              <label>
-                Nomor Kontak
-                <input value={customerPhone} onChange={e => setCustomerPhone(e.target.value)} required />
-              </label>
+              <label>Nama Penerima<input value={customerName} onChange={e => setCustomerName(e.target.value)} required /></label>
+              <label>Email<input value={customerEmail} onChange={e => setCustomerEmail(e.target.value)} type="email" required /></label>
+              <label>Nomor Kontak<input value={customerPhone} onChange={e => setCustomerPhone(e.target.value)} required /></label>
               <label>
                 Metode Pembayaran
                 <select value={paymentMethod} onChange={e => setPaymentMethod(e.target.value)}>
@@ -163,33 +190,22 @@ export function CheckoutModal({ open, items, session, profile, onClose, onSucces
                 </select>
               </label>
               <label className="checkout-full">
-                Alamat Lengkap
-                <textarea value={address} onChange={e => setAddress(e.target.value)} rows={3} required />
+                Ekspedisi Pengiriman
+                <select value={selectedShippingId} onChange={e => onShippingChange(e.target.value)} required={shippingOptions.length > 0}>
+                  <option value="">{shippingOptions.length ? "- Pilih Ekspedisi -" : "Ekspedisi belum tersedia"}</option>
+                  {shippingOptions.map(option => (
+                    <option key={option.id} value={option.id}>
+                      {option.name}{option.service_name ? ` / ${option.service_name}` : ""} — {formatCurrency(option.base_cost || 0)} {option.etd_text ? `(${option.etd_text})` : ""}
+                    </option>
+                  ))}
+                </select>
               </label>
-              <label>
-                Kecamatan
-                <input value={district} onChange={e => setDistrict(e.target.value)} />
-              </label>
-              <label>
-                Kota/Kabupaten
-                <input value={city} onChange={e => setCity(e.target.value)} required />
-              </label>
-              <label>
-                Provinsi
-                <input value={province} onChange={e => setProvince(e.target.value)} required />
-              </label>
-              <label>
-                Kode Pos
-                <input value={postalCode} onChange={e => setPostalCode(e.target.value)} />
-              </label>
-              <label>
-                Ongkir / Estimasi
-                <input value={shippingCost} onChange={e => setShippingCost(Number(e.target.value || 0))} type="number" min={0} />
-              </label>
-              <label className="checkout-full">
-                Catatan
-                <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2} placeholder="Catatan ukuran, warna, atau pengiriman..." />
-              </label>
+              <label className="checkout-full">Alamat Lengkap<textarea value={address} onChange={e => setAddress(e.target.value)} rows={3} required /></label>
+              <label>Kecamatan<input value={district} onChange={e => setDistrict(e.target.value)} /></label>
+              <label>Kota/Kabupaten<input value={city} onChange={e => setCity(e.target.value)} required /></label>
+              <label>Provinsi<input value={province} onChange={e => setProvince(e.target.value)} required /></label>
+              <label>Kode Pos<input value={postalCode} onChange={e => setPostalCode(e.target.value)} /></label>
+              <label className="checkout-full">Catatan<textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2} placeholder="Catatan ukuran, warna, atau pengiriman..." /></label>
             </div>
 
             <div className="checkout-order-preview">
@@ -202,12 +218,12 @@ export function CheckoutModal({ open, items, session, profile, onClose, onSucces
               ))}
               <hr />
               <div><span>Subtotal</span><strong>{formatCurrency(subtotal)}</strong></div>
+              <div><span>Ekspedisi</span><strong>{selectedShipping?.name || items[0]?.shipping_name || "-"}</strong></div>
               <div><span>Ongkir</span><strong>{formatCurrency(Number(shippingCost || 0))}</strong></div>
               <div className="grand-total"><span>Total</span><strong>{formatCurrency(grandTotal)}</strong></div>
             </div>
 
             {message && <div className={result ? "success-box" : "error-box"}>{message}</div>}
-
             {result?.order_number && (
               <div className="order-success-card">
                 <span>Nomor Pesanan</span>

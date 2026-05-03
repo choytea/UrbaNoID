@@ -1,6 +1,19 @@
 import { useEffect, useState } from "react";
 import { Session } from "@supabase/supabase-js";
-import { BookOpen, Boxes, ChevronDown, ChevronRight, ClipboardList, ExternalLink, LogIn, LogOut, ShoppingBag } from "lucide-react";
+import {
+  BookOpen,
+  Boxes,
+  ChevronDown,
+  ChevronRight,
+  ClipboardList,
+  ExternalLink,
+  LogIn,
+  LogOut,
+  ShoppingBag,
+  Store,
+  Truck,
+  Users
+} from "lucide-react";
 import { CART_UPDATED_EVENT, cartCount, requestOpenCart } from "../lib/cart";
 import { supabase } from "../lib/supabase";
 import { Profile } from "../types";
@@ -11,7 +24,20 @@ type Props = {
   profile: Profile | null;
 };
 
-type Route = "buyer" | "seller" | "master" | "products" | "orders" | "login";
+type Route =
+  | "buyer"
+  | "buyer-login"
+  | "buyer-register"
+  | "buyer-profile"
+  | "seller"
+  | "seller-login"
+  | "master"
+  | "products"
+  | "orders"
+  | "shipping"
+  | "store-profile"
+  | "users"
+  | "login";
 
 const masterMenuItems = [
   { key: "showcases", label: "Etalase" },
@@ -24,12 +50,32 @@ const masterMenuItems = [
 
 function getRoute(): Route {
   const cleaned = window.location.hash.replace("#/", "").split("?")[0];
-  if (["seller", "master", "products", "orders", "login", "buyer"].includes(cleaned)) return cleaned as Route;
+  const routes = [
+    "buyer",
+    "buyer-login",
+    "buyer-register",
+    "buyer-profile",
+    "seller",
+    "seller-login",
+    "master",
+    "products",
+    "orders",
+    "shipping",
+    "store-profile",
+    "users",
+    "login",
+  ];
+  if (routes.includes(cleaned)) return cleaned as Route;
   return "buyer";
 }
 
 function buyerCatalogUrl() {
   return `${window.location.origin}${window.location.pathname}#/buyer`;
+}
+
+function isStaffProfile(profile: Profile | null) {
+  const role = String(profile?.role || "").toUpperCase();
+  return role === "ADMIN" || role === "SUPERADMIN" || role === "SELLER";
 }
 
 function isAdminProfile(profile: Profile | null) {
@@ -42,8 +88,10 @@ export function Layout({ children, session, profile }: Props) {
   const [masterOpen, setMasterOpen] = useState(getRoute() === "master");
   const [cartBadge, setCartBadge] = useState(() => cartCount());
 
+  const isStaff = isStaffProfile(profile);
   const isAdmin = isAdminProfile(profile);
-  const showSellerSidebar = Boolean(session && isAdmin && ["seller", "products", "master", "orders"].includes(route));
+  const sellerRoutes = ["seller", "products", "master", "orders", "shipping", "store-profile", "users"];
+  const showSellerSidebar = Boolean(session && isStaff && sellerRoutes.includes(route));
 
   useEffect(() => {
     function onHashChange() {
@@ -51,19 +99,14 @@ export function Layout({ children, session, profile }: Props) {
       setRoute(nextRoute);
       if (nextRoute === "master") setMasterOpen(true);
     }
-
     window.addEventListener("hashchange", onHashChange);
     return () => window.removeEventListener("hashchange", onHashChange);
   }, []);
 
   useEffect(() => {
-    function onCartUpdated() {
-      setCartBadge(cartCount());
-    }
-
+    function onCartUpdated() { setCartBadge(cartCount()); }
     window.addEventListener(CART_UPDATED_EVENT, onCartUpdated);
     window.addEventListener("storage", onCartUpdated);
-
     return () => {
       window.removeEventListener(CART_UPDATED_EVENT, onCartUpdated);
       window.removeEventListener("storage", onCartUpdated);
@@ -74,7 +117,6 @@ export function Layout({ children, session, profile }: Props) {
     if (getRoute() === "buyer") {
       event.preventDefault();
       requestOpenCart();
-      return;
     }
   }
 
@@ -94,12 +136,11 @@ export function Layout({ children, session, profile }: Props) {
     if (getRoute() === "master") {
       window.dispatchEvent(new CustomEvent("urbanoid-master-tab", { detail: tabKey }));
     }
-
     window.location.hash = "/master";
   }
 
   return (
-    <div className="layout-clean-header layout-sidebar phase-2d-12-admin-guard">
+    <div className="layout-clean-header layout-sidebar phase-3b-ui">
       <header className="topbar clean-topbar auth-topbar">
         <a className="brand" href="#/buyer">
           <div className="brand-mark">UO</div>
@@ -110,16 +151,20 @@ export function Layout({ children, session, profile }: Props) {
         </a>
 
         <div className="header-auth-actions">
-          {session ? (
+          {session && !isStaff && <a className="header-auth-btn" href="#/buyer-profile">Profil Buyer</a>}
+
+          {!session && (
+            <>
+              <a className="header-auth-btn" href="#/buyer-login"><LogIn size={17} /> Login Buyer</a>
+              <a className="header-auth-btn" href="#/seller-login"><LogIn size={17} /> Seller</a>
+            </>
+          )}
+
+          {session && (
             <button type="button" className="header-auth-btn" onClick={logout}>
               <LogOut size={17} />
               Logout
             </button>
-          ) : (
-            <a className="header-auth-btn" href="#/login">
-              <LogIn size={17} />
-              Login
-            </a>
           )}
         </div>
       </header>
@@ -165,6 +210,23 @@ export function Layout({ children, session, profile }: Props) {
                 <ClipboardList size={17} />
                 <span>Pesanan</span>
               </a>
+
+              <a className={route === "shipping" ? "active" : ""} href="#/shipping">
+                <Truck size={17} />
+                <span>Ekspedisi</span>
+              </a>
+
+              <a className={route === "store-profile" ? "active" : ""} href="#/store-profile">
+                <Store size={17} />
+                <span>Profil Toko</span>
+              </a>
+
+              {isAdmin && (
+                <a className={route === "users" ? "active" : ""} href="#/users">
+                  <Users size={17} />
+                  <span>Pengguna & Role</span>
+                </a>
+              )}
 
               <button type="button" onClick={openBuyerCatalogInNewTab}>
                 <ExternalLink size={17} />
