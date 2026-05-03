@@ -91,7 +91,7 @@ export function OrdersPage() {
     const html = `
       <html>
         <head>
-          <title>Label ${selectedOrder.order_number || ""}</title>
+          <title>Label ${displayOrderNo(selectedOrder)}</title>
           <style>
             body { font-family: Arial, sans-serif; padding: 18px; color: #111827; }
             .label { width: 100%; max-width: 520px; border: 2px solid #111827; padding: 16px; }
@@ -107,7 +107,7 @@ export function OrdersPage() {
         <body>
           <div class="label">
             <h1>UrbaNoiD Shipping Label</h1>
-            <p><strong>No Order:</strong> ${selectedOrder.order_number || "-"}</p>
+            <p><strong>No Order:</strong> ${displayOrderNo(selectedOrder)}</p>
             <p><strong>Ekspedisi:</strong> ${row.courier_name || row.expedition_name || "-"} ${row.service_name ? "/ " + row.service_name : ""}</p>
             <p><strong>Resi:</strong> ${row.tracking_number || "BELUM ADA"}</p>
             <div class="barcode">${row.tracking_number || selectedOrder.order_number || "NO-RESI"}</div>
@@ -175,7 +175,7 @@ export function OrdersPage() {
   async function bookBiteship(row: ShipmentRow) {
     if (!selectedOrder) return;
 
-    const ok = confirm(`Booking resi Biteship untuk pesanan ${selectedOrder.order_number}? Pastikan data alamat toko, alamat buyer, berat, dan ekspedisi sudah benar.`);
+    const ok = confirm(`Booking resi Biteship untuk pesanan ${displayOrderNo(selectedOrder)}? Pastikan data alamat toko, alamat buyer, berat, dan ekspedisi sudah benar.`);
     if (!ok) return;
 
     setError("");

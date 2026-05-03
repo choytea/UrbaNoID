@@ -189,6 +189,7 @@ export type StoreChatMessage = {
 export type OrderRow = {
   id: string;
   order_number: string | null;
+  order_no?: string | null;
   buyer_id: string | null;
   customer_name: string | null;
   customer_email: string | null;
