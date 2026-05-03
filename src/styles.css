@@ -3140,3 +3140,78 @@ button.danger {
   }
 }
 
+/* ============================================================
+   Phase 2D.12: Admin Guard for Seller Live Access
+   ============================================================ */
+
+.phase-2d-12-admin-guard .seller-sidebar {
+  border-color: #c7d2fe;
+}
+
+.access-denied-panel {
+  max-width: 900px;
+  margin: 42px auto;
+}
+
+.security-card {
+  display: grid;
+  grid-template-columns: 82px minmax(0, 1fr);
+  gap: 18px;
+  align-items: start;
+  border: 1px solid #fecaca;
+  background: #fff1f2;
+  border-radius: 22px;
+  padding: 24px;
+}
+
+.security-icon {
+  width: 66px;
+  height: 66px;
+  display: grid;
+  place-items: center;
+  background: #ffffff;
+  border: 1px solid #fecaca;
+  border-radius: 22px;
+  font-size: 30px;
+}
+
+.security-card h1 {
+  margin: 0 0 8px;
+  color: #7f1d1d;
+}
+
+.security-card p {
+  margin: 0 0 10px;
+  color: #334155;
+  line-height: 1.55;
+}
+
+.security-note {
+  font-size: 13px;
+}
+
+.security-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.security-actions button {
+  border-radius: 13px;
+  padding: 11px 14px;
+  font-weight: 900;
+}
+
+@media (max-width: 720px) {
+  .security-card {
+    grid-template-columns: 1fr;
+  }
+
+  .security-icon {
+    width: 52px;
+    height: 52px;
+    border-radius: 17px;
+    font-size: 24px;
+  }
+}

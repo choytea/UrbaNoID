@@ -1,4 +1,4 @@
-export type AppRole = "ADMIN" | "SELLER" | "BUYER";
+export type AppRole = "ADMIN" | "SUPERADMIN" | "SELLER" | "BUYER";
 export type AppStatus = "AKTIF" | "NONAKTIF" | "DRAFT" | "ARSIP";
 
 export type Profile = {

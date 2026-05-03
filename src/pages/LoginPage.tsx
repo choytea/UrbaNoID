@@ -2,10 +2,16 @@ import { useState } from "react";
 import { supabase } from "../lib/supabase";
 
 type Props = {
-  onDone: () => void;
+  onDone: (targetPath?: string) => void;
+  redirectPath?: string;
 };
 
-export function LoginPage({ onDone }: Props) {
+function isAdminRole(role: unknown) {
+  const normalized = String(role || "").toUpperCase();
+  return normalized === "ADMIN" || normalized === "SUPERADMIN";
+}
+
+export function LoginPage({ onDone, redirectPath }: Props) {
   const [mode, setMode] = useState<"login" | "register">("login");
   const [fullName, setFullName] = useState("");
   const [username, setUsername] = useState("");
@@ -18,13 +24,36 @@ export function LoginPage({ onDone }: Props) {
     setMessage("Memproses...");
 
     if (mode === "login") {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+
       if (error) {
         setMessage(error.message);
         return;
       }
+
+      const userId = data.session?.user.id;
+      let targetPath = "/buyer";
+
+      if (userId) {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("role,is_active")
+          .eq("id", userId)
+          .maybeSingle();
+
+        if (profile?.is_active === false) {
+          await supabase.auth.signOut();
+          setMessage("Akun ini nonaktif. Hubungi admin toko.");
+          return;
+        }
+
+        if (isAdminRole(profile?.role)) {
+          targetPath = redirectPath || "/seller";
+        }
+      }
+
       setMessage("Login berhasil.");
-      setTimeout(onDone, 500);
+      setTimeout(() => onDone(targetPath), 350);
       return;
     }
 
@@ -52,7 +81,10 @@ export function LoginPage({ onDone }: Props) {
     <div className="auth-wrap">
       <form className="auth-card" onSubmit={submit}>
         <h1>{mode === "login" ? "Login UrbaNoiD" : "Register Buyer"}</h1>
-        <p>Gunakan akun Supabase Auth. Untuk seller, pastikan role di profiles adalah ADMIN atau SELLER.</p>
+        <p>
+          Area Seller, Master Data, Product Matrix, dan Pesanan hanya bisa dibuka oleh akun
+          dengan role <strong>ADMIN</strong>. Buyer tetap diarahkan ke katalog.
+        </p>
 
         {mode === "register" && (
           <>

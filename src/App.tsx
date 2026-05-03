@@ -12,10 +12,54 @@ import OrdersPage from "./pages/OrdersPage";
 
 type Route = "buyer" | "seller" | "master" | "products" | "orders" | "login";
 
+const ADMIN_ROUTES: Route[] = ["seller", "master", "products", "orders"];
+
 function getRoute(): Route {
   const hash = window.location.hash.replace("#/", "").split("?")[0];
   if (["seller", "master", "products", "orders", "login", "buyer"].includes(hash)) return hash as Route;
   return "buyer";
+}
+
+function isAdminProfile(profile: Profile | null) {
+  const role = String(profile?.role || "").toUpperCase();
+  return role === "ADMIN" || role === "SUPERADMIN";
+}
+
+function protectedRoutePath(route: Route) {
+  return `/${route}`;
+}
+
+function LoadingPanel({ text = "Memuat UrbaNoiD..." }: { text?: string }) {
+  return <div className="boot-screen">{text}</div>;
+}
+
+function AdminAccessDenied() {
+  async function logoutAndReturnBuyer() {
+    await supabase.auth.signOut();
+    window.location.hash = "/buyer";
+  }
+
+  return (
+    <section className="panel access-denied-panel">
+      <div className="security-card">
+        <div className="security-icon">🔒</div>
+        <div>
+          <h1>Akses Admin Dibatasi</h1>
+          <p>
+            Halaman Seller, Master Data, Product Matrix, dan Pesanan hanya dapat dibuka
+            oleh akun dengan role <strong>ADMIN</strong>.
+          </p>
+          <p className="security-note">
+            Jika akun ini seharusnya menjadi admin, ubah role pada tabel <strong>profiles</strong> di Supabase.
+          </p>
+          <div className="security-actions">
+            <button onClick={() => (window.location.hash = "/buyer")}>Kembali ke Buyer</button>
+            <button className="danger solid-danger" onClick={logoutAndReturnBuyer}>Logout</button>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
 }
 
 export default function App() {
@@ -23,12 +67,17 @@ export default function App() {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [booting, setBooting] = useState(true);
+  const [profileLoading, setProfileLoading] = useState(false);
 
-  const isStaff = useMemo(() => profile?.role === "ADMIN" || profile?.role === "SELLER", [profile]);
+  const isAdmin = useMemo(() => isAdminProfile(profile), [profile]);
+  const isProtectedRoute = ADMIN_ROUTES.includes(route);
 
   async function loadProfile(userId?: string) {
+    setProfileLoading(true);
+
     if (!userId) {
       setProfile(null);
+      setProfileLoading(false);
       return;
     }
 
@@ -41,10 +90,16 @@ export default function App() {
     if (error) {
       console.error(error);
       setProfile(null);
+      setProfileLoading(false);
       return;
     }
 
     setProfile(data as Profile | null);
+    setProfileLoading(false);
+  }
+
+  function handleLoginDone(targetPath?: string) {
+    window.location.hash = targetPath || "/seller";
   }
 
   useEffect(() => {
@@ -62,7 +117,7 @@ export default function App() {
 
     const { data: listener } = supabase.auth.onAuthStateChange((_event, newSession) => {
       setSession(newSession);
-      loadProfile(newSession?.user.id);
+      void loadProfile(newSession?.user.id);
     });
 
     return () => {
@@ -72,34 +127,40 @@ export default function App() {
   }, []);
 
   if (booting) {
-    return <div className="boot-screen">Memuat UrbaNoiD...</div>;
+    return <LoadingPanel />;
   }
 
   if (route === "login") {
     return (
       <Layout session={session} profile={profile}>
-        <LoginPage onDone={() => (window.location.hash = profile?.role === "ADMIN" || profile?.role === "SELLER" ? "/seller" : "/buyer")} />
+        <LoginPage onDone={handleLoginDone} redirectPath="/seller" />
       </Layout>
     );
   }
 
-  if (route === "seller" || route === "master" || route === "products") {
+  if (isProtectedRoute) {
+    const targetPath = protectedRoutePath(route);
+
     if (!session) {
       return (
         <Layout session={session} profile={profile}>
-          <LoginPage onDone={() => (window.location.hash = "/seller")} />
+          <LoginPage onDone={handleLoginDone} redirectPath={targetPath} />
         </Layout>
       );
     }
 
-    if (!isStaff) {
+    if (profileLoading) {
       return (
         <Layout session={session} profile={profile}>
-          <div className="panel">
-            <h1>Akses seller ditolak</h1>
-            <p>Akun ini belum memiliki role ADMIN atau SELLER.</p>
-            <button onClick={() => (window.location.hash = "/buyer")}>Kembali ke Buyer</button>
-          </div>
+          <LoadingPanel text="Memeriksa akses admin..." />
+        </Layout>
+      );
+    }
+
+    if (!isAdmin) {
+      return (
+        <Layout session={session} profile={profile}>
+          <AdminAccessDenied />
         </Layout>
       );
     }
@@ -115,6 +176,3 @@ export default function App() {
     </Layout>
   );
 }
-
-
-
