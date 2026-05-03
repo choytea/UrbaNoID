@@ -10,6 +10,14 @@ function usernameFromEmail(email: string) {
   return email.split("@")[0]?.replace(/[^a-zA-Z0-9_]+/g, "_") || "buyer";
 }
 
+function isEmailNotConfirmed(message: string) {
+  return message.toLowerCase().includes("email not confirmed") || message.toLowerCase().includes("email_not_confirmed");
+}
+
+function emailConfirmationHelp() {
+  return "Email belum terkonfirmasi. Untuk mode toko online tanpa verifikasi email, nonaktifkan Confirm Email di Supabase: Authentication → Providers → Email → Confirm Email = OFF. Setelah itu register buyer baru dapat langsung login.";
+}
+
 export function BuyerAuthPage({ mode: initialMode, onDone }: Props) {
   const [mode, setMode] = useState<"login" | "register">(initialMode);
   const [fullName, setFullName] = useState("");
@@ -25,7 +33,7 @@ export function BuyerAuthPage({ mode: initialMode, onDone }: Props) {
   const [message, setMessage] = useState("");
 
   async function upsertBuyerProfile(userId: string, userEmail: string) {
-    await supabase.from("profiles").upsert({
+    const { error } = await supabase.from("profiles").upsert({
       id: userId,
       role: "BUYER",
       username: username.trim() || usernameFromEmail(userEmail),
@@ -40,6 +48,8 @@ export function BuyerAuthPage({ mode: initialMode, onDone }: Props) {
       is_active: true,
       updated_at: new Date().toISOString(),
     }, { onConflict: "id" });
+
+    if (error) console.warn("Buyer profile upsert warning:", error.message);
   }
 
   async function submit(event: React.FormEvent) {
@@ -53,20 +63,21 @@ export function BuyerAuthPage({ mode: initialMode, onDone }: Props) {
       }
 
       const { data, error } = await supabase.auth.signUp({
-        email,
+        email: email.trim(),
         password,
         options: {
           data: {
             role: "BUYER",
-            username,
-            full_name: fullName,
-            phone,
-            address_line: addressLine,
-            district,
-            city,
-            province,
-            postal_code: postalCode,
+            username: username.trim(),
+            full_name: fullName.trim(),
+            phone: phone.trim(),
+            address_line: addressLine.trim(),
+            district: district.trim(),
+            city: city.trim(),
+            province: province.trim(),
+            postal_code: postalCode.trim(),
           },
+          emailRedirectTo: `${window.location.origin}${window.location.pathname}#/buyer-login`,
         },
       });
 
@@ -75,20 +86,33 @@ export function BuyerAuthPage({ mode: initialMode, onDone }: Props) {
         return;
       }
 
-      if (data.user?.id) {
+      if (data.session && data.user?.id) {
         await upsertBuyerProfile(data.user.id, data.user.email || email);
+        setMessage("Registrasi buyer berhasil. Masuk otomatis...");
+        setTimeout(() => onDone("/buyer"), 400);
+        return;
       }
 
-      await supabase.auth.signOut();
-      setMessage("Registrasi berhasil. Silakan login untuk melanjutkan keranjang atau checkout.");
+      if (data.user?.id) {
+        // Ketika Confirm Email masih ON, Supabase mengembalikan user tetapi session null.
+        // Buyer belum bisa login sampai email dikonfirmasi atau Confirm Email dinonaktifkan di dashboard Supabase.
+        setMessage("Registrasi berhasil, tetapi Supabase masih meminta konfirmasi email. Nonaktifkan Confirm Email di Supabase agar buyer baru bisa langsung login tanpa verifikasi email.");
+        setMode("login");
+        return;
+      }
+
+      setMessage("Registrasi berhasil. Silakan login buyer.");
       setMode("login");
       return;
     }
 
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: email.trim(),
+      password,
+    });
 
     if (error) {
-      setMessage(error.message);
+      setMessage(isEmailNotConfirmed(error.message) ? emailConfirmationHelp() : error.message);
       return;
     }
 
@@ -145,7 +169,6 @@ export function BuyerAuthPage({ mode: initialMode, onDone }: Props) {
           {mode === "login" ? "Belum punya akun? Registrasi Buyer" : "Sudah register? Login Buyer"}
         </button>
 
-        <a className="link-button center-link" href="#/seller-login">Masuk sebagai Seller/Admin</a>
         {message && <div className="message">{message}</div>}
       </form>
     </div>

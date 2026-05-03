@@ -154,10 +154,7 @@ export function Layout({ children, session, profile }: Props) {
           {session && !isStaff && <a className="header-auth-btn" href="#/buyer-profile">Profil Buyer</a>}
 
           {!session && (
-            <>
-              <a className="header-auth-btn" href="#/buyer-login"><LogIn size={17} /> Login Buyer</a>
-              <a className="header-auth-btn" href="#/seller-login"><LogIn size={17} /> Seller</a>
-            </>
+            <a className="header-auth-btn" href="#/buyer-login"><LogIn size={17} /> Login Buyer</a>
           )}
 
           {session && (
