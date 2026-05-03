@@ -5481,3 +5481,37 @@ button.danger {
     grid-template-columns: 1fr 1fr;
   }
 }
+
+
+/* ============================================================
+   Phase 3B.6.1: Store Origin Location UI
+   ============================================================ */
+
+.origin-location-box {
+  border: 1px solid #bfdbfe;
+  background: #eff6ff;
+  border-radius: 16px;
+  padding: 12px 14px;
+}
+
+.origin-location-box h3 {
+  margin: 0 0 4px;
+  font-size: 16px;
+}
+
+.origin-location-box p {
+  margin: 0;
+  color: #475569;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.profile-form select {
+  min-height: 46px;
+  border: 1px solid #cbd5e1;
+  border-radius: 14px;
+  padding: 0 14px;
+  background: #ffffff;
+  color: #0f172a;
+  font-weight: 800;
+}

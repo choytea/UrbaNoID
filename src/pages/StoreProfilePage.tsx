@@ -16,6 +16,13 @@ const emptyStore = {
   city: "",
   province: "",
   postal_code: "",
+  origin_contact_name: "",
+  origin_note: "",
+  origin_collection_method: "pickup",
+  origin_area_id: "",
+  origin_location_id: "",
+  origin_latitude: "",
+  origin_longitude: "",
   description: "",
   instagram_url: "",
   tiktok_url: "",
@@ -49,6 +56,13 @@ export function StoreProfilePage() {
         city: row.city || "",
         province: row.province || "",
         postal_code: row.postal_code || "",
+        origin_contact_name: row.origin_contact_name || "",
+        origin_note: row.origin_note || "",
+        origin_collection_method: row.origin_collection_method || "pickup",
+        origin_area_id: row.origin_area_id || "",
+        origin_location_id: row.origin_location_id || "",
+        origin_latitude: row.origin_latitude === null || row.origin_latitude === undefined ? "" : String(row.origin_latitude),
+        origin_longitude: row.origin_longitude === null || row.origin_longitude === undefined ? "" : String(row.origin_longitude),
         description: row.description || "",
         instagram_url: row.instagram_url || "",
         tiktok_url: row.tiktok_url || "",
@@ -96,6 +110,13 @@ export function StoreProfilePage() {
       city: form.city.trim() || null,
       province: form.province.trim() || null,
       postal_code: form.postal_code.trim() || null,
+      origin_contact_name: form.origin_contact_name.trim() || form.store_name.trim() || null,
+      origin_note: form.origin_note.trim() || null,
+      origin_collection_method: form.origin_collection_method || "pickup",
+      origin_area_id: form.origin_area_id.trim() || null,
+      origin_location_id: form.origin_location_id.trim() || null,
+      origin_latitude: form.origin_latitude === "" ? null : Number(form.origin_latitude),
+      origin_longitude: form.origin_longitude === "" ? null : Number(form.origin_longitude),
       description: form.description.trim() || null,
       instagram_url: form.instagram_url.trim() || null,
       tiktok_url: form.tiktok_url.trim() || null,
@@ -151,6 +172,24 @@ export function StoreProfilePage() {
           <label>Kecamatan<input value={form.district} onChange={e => setForm({ ...form, district: e.target.value })} /></label>
           <label>Provinsi<input value={form.province} onChange={e => setForm({ ...form, province: e.target.value })} /></label>
           <label>Kode Pos<input value={form.postal_code} onChange={e => setForm({ ...form, postal_code: e.target.value })} /></label>
+
+          <div className="checkout-full origin-location-box">
+            <h3>Data Origin Biteship</h3>
+            <p>Area ID atau koordinat membuat tarif dan booking Biteship lebih akurat. Postal code tetap digunakan sebagai fallback.</p>
+          </div>
+          <label>Nama Kontak Pickup<input value={form.origin_contact_name} onChange={e => setForm({ ...form, origin_contact_name: e.target.value })} placeholder="Nama pengirim/pickup" /></label>
+          <label>Metode Pickup
+            <select value={form.origin_collection_method} onChange={e => setForm({ ...form, origin_collection_method: e.target.value })}>
+              <option value="pickup">pickup - kurir jemput ke toko</option>
+              <option value="drop_off">drop_off - seller antar ke agen</option>
+            </select>
+          </label>
+          <label>Biteship Origin Area ID<input value={form.origin_area_id} onChange={e => setForm({ ...form, origin_area_id: e.target.value })} placeholder="area_id dari Maps API Biteship" /></label>
+          <label>Biteship Location ID<input value={form.origin_location_id} onChange={e => setForm({ ...form, origin_location_id: e.target.value })} placeholder="Opsional, jika memakai Locations API" /></label>
+          <label>Latitude Toko<input value={form.origin_latitude} onChange={e => setForm({ ...form, origin_latitude: e.target.value })} type="number" step="any" placeholder="-6.123456" /></label>
+          <label>Longitude Toko<input value={form.origin_longitude} onChange={e => setForm({ ...form, origin_longitude: e.target.value })} type="number" step="any" placeholder="106.123456" /></label>
+          <label className="checkout-full">Catatan Pickup<textarea value={form.origin_note} onChange={e => setForm({ ...form, origin_note: e.target.value })} rows={2} placeholder="Patokan toko, jam pickup, lantai/gerbang, dll." /></label>
+
           <label>Instagram URL<input value={form.instagram_url} onChange={e => setForm({ ...form, instagram_url: e.target.value })} /></label>
           <label>TikTok URL<input value={form.tiktok_url} onChange={e => setForm({ ...form, tiktok_url: e.target.value })} /></label>
           <label className="checkout-full">Deskripsi Toko<textarea value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} rows={5} /></label>

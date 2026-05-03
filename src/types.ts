@@ -33,6 +33,13 @@ export type StoreProfile = {
   city: string | null;
   province: string | null;
   postal_code: string | null;
+  origin_contact_name?: string | null;
+  origin_note?: string | null;
+  origin_collection_method?: string | null;
+  origin_area_id?: string | null;
+  origin_location_id?: string | null;
+  origin_latitude?: number | null;
+  origin_longitude?: number | null;
   description: string | null;
   instagram_url: string | null;
   tiktok_url: string | null;
