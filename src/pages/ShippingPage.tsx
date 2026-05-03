@@ -137,8 +137,8 @@ export function ShippingPage() {
 
       <div className="shipping-guide-grid">
         <div><strong>1. Aktifkan layanan</strong><span>Isi JNE/JNT/SICEPAT, tarif dasar, estimasi, lalu centang Aktif.</span></div>
-        <div><strong>2. Siapkan integrasi</strong><span>Isi provider, service code, dan aktifkan API Booking/Tracking/Label.</span></div>
-        <div><strong>3. Buat resi</strong><span>Pesanan seller dapat dicetak label manual sekarang, dan siap disambungkan ke Edge Function.</span></div>
+        <div><strong>2. Siapkan Biteship</strong><span>Isi Provider API = Biteship, service code sesuai layanan, lalu aktifkan API Booking/Tracking/Label.</span></div>
+        <div><strong>3. Buat resi</strong><span>Pesanan seller dapat dibooking ke Biteship dari menu Pesanan setelah Edge Function dideploy.</span></div>
       </div>
 
       <div className="master-filter-row"><input value={query} onChange={e => setQuery(e.target.value)} placeholder="Cari ekspedisi, layanan, kode, provider, estimasi..." /></div>

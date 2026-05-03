@@ -27,6 +27,9 @@ export type CartItem = {
   quantity: number;
   unit_price: number;
   weight_gram: number;
+  package_length_cm?: number | null;
+  package_width_cm?: number | null;
+  package_height_cm?: number | null;
   image_url: string | null;
   stock_qty: number;
   shipping_expedition_id?: string | null;
@@ -54,6 +57,9 @@ export function makeCartItem(
     quantity: Math.max(1, Math.min(Number(quantity || 1), Number(variant.stock_qty || 1))),
     unit_price: Number(variant.final_price || variant.base_price || product.min_price || 0),
     weight_gram: Number(variant.weight_gram || 0),
+    package_length_cm: variant.package_length_cm ?? null,
+    package_width_cm: variant.package_width_cm ?? null,
+    package_height_cm: variant.package_height_cm ?? null,
     image_url: product.primary_image_url,
     stock_qty: Number(variant.stock_qty || 0),
     shipping_expedition_id: shipping?.id || null,
@@ -76,6 +82,9 @@ export function readCart(): CartItem[] {
         quantity: Number(item.quantity || 1),
         unit_price: Number(item.unit_price || 0),
         weight_gram: Number(item.weight_gram || 0),
+        package_length_cm: item.package_length_cm === null || item.package_length_cm === undefined ? null : Number(item.package_length_cm || 0),
+        package_width_cm: item.package_width_cm === null || item.package_width_cm === undefined ? null : Number(item.package_width_cm || 0),
+        package_height_cm: item.package_height_cm === null || item.package_height_cm === undefined ? null : Number(item.package_height_cm || 0),
         stock_qty: Number(item.stock_qty || 0),
         shipping_cost: Number(item.shipping_cost || 0),
       }));

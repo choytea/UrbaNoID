@@ -23,6 +23,8 @@ export function OrdersPage() {
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("SEMUA");
   const [error, setError] = useState("");
+  const [bookingShipmentId, setBookingShipmentId] = useState("");
+  const [trackingShipmentId, setTrackingShipmentId] = useState("");
   const [loading, setLoading] = useState(true);
 
   async function load() {
@@ -164,6 +166,76 @@ export function OrdersPage() {
   }
 
 
+
+  function isBiteshipShipment(row: ShipmentRow) {
+    const provider = String(row.provider_name || row.expedition_name || row.courier_name || "").toLowerCase();
+    return provider.includes("biteship") || row.supports_api_booking || row.provider_order_id || row.booking_status === "BITESHIP_BOOKED";
+  }
+
+  async function bookBiteship(row: ShipmentRow) {
+    if (!selectedOrder) return;
+
+    const ok = confirm(`Booking resi Biteship untuk pesanan ${selectedOrder.order_number}? Pastikan data alamat toko, alamat buyer, berat, dan ekspedisi sudah benar.`);
+    if (!ok) return;
+
+    setError("");
+    setBookingShipmentId(row.id);
+
+    const { data, error } = await supabase.functions.invoke("shipping-booking", {
+      body: {
+        shipment_id: row.id,
+        force: false,
+      },
+    });
+
+    setBookingShipmentId("");
+
+    if (error) {
+      setError(error.message);
+      return;
+    }
+
+    if ((data as any)?.error) {
+      setError((data as any).error);
+      return;
+    }
+
+    if (selectedOrder.id) await loadDetails(selectedOrder.id);
+    await load();
+  }
+
+  async function trackBiteship(row: ShipmentRow) {
+    if (!row.tracking_number && !row.provider_tracking_id) {
+      setError("Nomor resi/tracking belum tersedia.");
+      return;
+    }
+
+    setError("");
+    setTrackingShipmentId(row.id);
+
+    const { data, error } = await supabase.functions.invoke("shipping-track", {
+      body: {
+        shipment_id: row.id,
+      },
+    });
+
+    setTrackingShipmentId("");
+
+    if (error) {
+      setError(error.message);
+      return;
+    }
+
+    if ((data as any)?.error) {
+      setError((data as any).error);
+      return;
+    }
+
+    if (selectedOrder?.id) await loadDetails(selectedOrder.id);
+    await load();
+  }
+
+
   async function sendMessage() {
     if (!selectedOrder || !newMessage.trim()) return;
 
@@ -301,9 +373,19 @@ export function OrdersPage() {
                       <p>{row.courier_name || row.expedition_name || "-"} {row.service_name ? `/ ${row.service_name}` : ""} · {formatCurrency(Number(row.shipping_cost || 0))}</p>
                       <p>Resi: <strong>{row.tracking_number || "Belum ada"}</strong></p>
                       <p>Status booking: {row.booking_status || "BELUM_BOOKING"}</p>
+                      {row.provider_order_id && <p>Biteship Order ID: <strong>{row.provider_order_id}</strong></p>}
+                      {row.tracking_url && <p><a href={row.tracking_url} target="_blank" rel="noreferrer">Buka Tracking</a></p>}
+                      {row.label_url && <p><a href={row.label_url} target="_blank" rel="noreferrer">Buka Label Biteship</a></p>}
+                      {row.biteship_error && <p className="shipment-error-note">{row.biteship_error}</p>}
                       <div className="button-row mini-button-row">
                         <button onClick={() => updateTrackingNumber(row)}>Input Resi</button>
                         <button onClick={() => printShipmentLabel(row)}>Cetak Label</button>
+                        <button className="btn-primary" disabled={bookingShipmentId === row.id || !!row.provider_order_id} onClick={() => bookBiteship(row)}>
+                          {bookingShipmentId === row.id ? "Booking..." : row.provider_order_id ? "Sudah Booking" : "Booking Biteship"}
+                        </button>
+                        <button disabled={trackingShipmentId === row.id || (!row.tracking_number && !row.provider_tracking_id)} onClick={() => trackBiteship(row)}>
+                          {trackingShipmentId === row.id ? "Tracking..." : "Cek Tracking"}
+                        </button>
                       </div>
                     </div>
                   ))}

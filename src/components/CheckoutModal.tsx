@@ -117,6 +117,9 @@ export function CheckoutModal({
       quantity: item.quantity,
       unit_price: item.unit_price,
       weight_gram: item.weight_gram,
+      package_length_cm: item.package_length_cm || null,
+      package_width_cm: item.package_width_cm || null,
+      package_height_cm: item.package_height_cm || null,
       image_url: item.image_url,
     }));
 

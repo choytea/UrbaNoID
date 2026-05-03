@@ -5442,3 +5442,42 @@ button.danger {
     padding: 12px;
   }
 }
+
+
+/* ============================================================
+   Phase 3B.6: Biteship Booking UI
+   ============================================================ */
+
+.shipment-card a {
+  color: #2563eb;
+  font-weight: 900;
+  text-decoration: underline;
+}
+
+.shipment-error-note {
+  color: #991b1b;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 10px;
+  padding: 8px 10px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.mini-button-row .btn-primary {
+  color: #ffffff;
+  background: #16a34a;
+  border-color: #16a34a;
+}
+
+.mini-button-row button:disabled {
+  opacity: .58;
+  cursor: not-allowed;
+}
+
+@media (max-width: 900px) {
+  .mini-button-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+}
