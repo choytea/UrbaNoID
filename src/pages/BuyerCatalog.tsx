@@ -232,18 +232,6 @@ export function BuyerCatalog({ session = null, profile = null }: Props) {
 
   return (
     <>
-      {storeProfile && (
-        <section className="store-public-card">
-          {storeProfile.logo_url && <img src={storeProfile.logo_url} alt={storeProfile.store_name} />}
-          <div>
-            <strong>{storeProfile.store_name}</strong>
-            <span>{storeProfile.tagline || "Premium Urban Apparel"}</span>
-            <small>{[storeProfile.city, storeProfile.province].filter(Boolean).join(", ")}</small>
-          </div>
-          <a href="#/buyer-profile">Profil Buyer</a>
-        </section>
-      )}
-
       <section className="hero compact">
         <h1>{storeProfile?.tagline || "Lebih dari sekadar kaos. Ini adalah cara kamu bergerak dengan identitasmu."}</h1>
         <div className="search-row">

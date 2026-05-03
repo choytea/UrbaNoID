@@ -13,6 +13,7 @@ import { ProductMatrixPage } from "./pages/ProductMatrixPage";
 import OrdersPage from "./pages/OrdersPage";
 import ShippingPage from "./pages/ShippingPage";
 import StoreProfilePage from "./pages/StoreProfilePage";
+import StoreChatAdminPage from "./pages/StoreChatAdminPage";
 import UsersPage from "./pages/UsersPage";
 
 type Route =
@@ -27,10 +28,11 @@ type Route =
   | "orders"
   | "shipping"
   | "store-profile"
+  | "store-chat"
   | "users"
   | "login";
 
-const STAFF_ROUTES: Route[] = ["seller", "master", "products", "orders", "shipping", "store-profile"];
+const STAFF_ROUTES: Route[] = ["seller", "master", "products", "orders", "shipping", "store-profile", "store-chat"];
 const ADMIN_ROUTES: Route[] = ["users"];
 const AUTH_BUYER_ROUTES: Route[] = ["buyer-profile"];
 
@@ -48,6 +50,7 @@ function getRoute(): Route {
     "orders",
     "shipping",
     "store-profile",
+    "store-chat",
     "users",
     "login",
   ];
@@ -250,6 +253,7 @@ export default function App() {
       {route === "orders" && <OrdersPage />}
       {route === "shipping" && <ShippingPage />}
       {route === "store-profile" && <StoreProfilePage />}
+      {route === "store-chat" && <StoreChatAdminPage />}
       {route === "users" && <UsersPage />}
       {route === "buyer-profile" && <BuyerProfilePage session={session} profile={profile} onProfileUpdated={() => loadProfile(session)} />}
       {route === "buyer" && <BuyerCatalog session={session} profile={profile} />}

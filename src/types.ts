@@ -127,6 +127,28 @@ export type OrderMessage = {
   created_at: string;
 };
 
+export type StoreChat = {
+  id: string;
+  store_id: string;
+  buyer_id: string;
+  subject: string | null;
+  status: string | null;
+  last_message: string | null;
+  last_message_at: string | null;
+  created_at: string;
+  updated_at: string | null;
+};
+
+export type StoreChatMessage = {
+  id: string;
+  chat_id: string;
+  sender_id: string | null;
+  sender_role: string | null;
+  message: string;
+  is_read?: boolean;
+  created_at: string;
+};
+
 export type OrderRow = {
   id: string;
   order_number: string | null;
