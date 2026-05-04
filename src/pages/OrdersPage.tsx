@@ -23,6 +23,19 @@ function isImageProof(url?: string | null) {
   return !!url && /\.(png|jpe?g|webp|gif)(\?|$)/i.test(url);
 }
 
+async function resolvePaymentProofUrls(rows: PaymentRow[]): Promise<PaymentRow[]> {
+  return Promise.all(rows.map(async row => {
+    if (!row.proof_storage_path) return row;
+
+    const { data, error } = await supabase.storage
+      .from("payment-proofs")
+      .createSignedUrl(row.proof_storage_path, 60 * 60);
+
+    if (error || !data?.signedUrl) return row;
+    return { ...row, proof_url: data.signedUrl };
+  }));
+}
+
 export function OrdersPage() {
   const [orders, setOrders] = useState<OrderRow[]>([]);
   const [items, setItems] = useState<OrderItem[]>([]);
@@ -67,8 +80,10 @@ export function OrdersPage() {
       supabase.from("order_messages").select("*").eq("order_id", orderId).order("created_at", { ascending: true }),
     ]);
 
+    const resolvedPaymentRows = await resolvePaymentProofUrls((paymentRows || []) as PaymentRow[]);
+
     setItems(itemRows || []);
-    setPayments(paymentRows || []);
+    setPayments(resolvedPaymentRows);
     setShipments(shipmentRows || []);
     setMessages((messageRows || []) as OrderMessage[]);
   }

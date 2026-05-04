@@ -48,6 +48,19 @@ function isImageProof(url?: string | null) {
   return !!url && /\.(png|jpe?g|webp|gif)(\?|$)/i.test(url);
 }
 
+async function resolvePaymentProofUrls(rows: PaymentRow[]): Promise<PaymentRow[]> {
+  return Promise.all(rows.map(async row => {
+    if (!row.proof_storage_path) return row;
+
+    const { data, error } = await supabase.storage
+      .from("payment-proofs")
+      .createSignedUrl(row.proof_storage_path, 60 * 60);
+
+    if (error || !data?.signedUrl) return row;
+    return { ...row, proof_url: data.signedUrl };
+  }));
+}
+
 export function BuyerProfilePage({ session, profile, onProfileUpdated }: Props) {
   const [activeTab, setActiveTab] = useState<BuyerProfileTab>(() => normalizeBuyerProfileTab(localStorage.getItem("urbanoid_buyer_profile_tab")));
   const [orderTab, setOrderTab] = useState<BuyerOrderTab>("ALL");
@@ -173,11 +186,13 @@ export function BuyerProfilePage({ session, profile, onProfileUpdated }: Props) 
       supabase.from("order_messages").select("*").eq("order_id", orderId).order("created_at", { ascending: true }),
     ]);
 
+    const resolvedPaymentRows = await resolvePaymentProofUrls((paymentRows || []) as PaymentRow[]);
+
     setItems((itemRows || []) as OrderItemRow[]);
-    setPayments((paymentRows || []) as PaymentRow[]);
+    setPayments(resolvedPaymentRows);
     setShipments((shipmentRows || []) as ShipmentRow[]);
     setMessages((messageRows || []) as OrderMessage[]);
-    if ((paymentRows || [])[0]) setSelectedPaymentId((paymentRows || [])[0].id);
+    if (resolvedPaymentRows[0]) setSelectedPaymentId(resolvedPaymentRows[0].id);
   }
 
   async function loadStore() {
@@ -277,7 +292,7 @@ export function BuyerProfilePage({ session, profile, onProfileUpdated }: Props) 
       return;
     }
 
-    if (!paymentFile && !payment.proof_url) {
+    if (!paymentFile && !payment.proof_url && !payment.proof_storage_path) {
       setMessage("Upload bukti pembayaran terlebih dahulu.");
       return;
     }
@@ -297,15 +312,15 @@ export function BuyerProfilePage({ session, profile, onProfileUpdated }: Props) 
         setSubmittingPayment(false);
         return;
       }
-      const { data } = supabase.storage.from("payment-proofs").getPublicUrl(proofStoragePath);
-      proofUrl = data.publicUrl;
+      const { data: signedData } = await supabase.storage.from("payment-proofs").createSignedUrl(proofStoragePath, 60 * 60);
+      proofUrl = signedData?.signedUrl || "";
     }
 
     const { data, error } = await supabase.rpc("buyer_confirm_payment", {
       p_order_id: selectedOrder.id,
       p_payment_id: payment.id,
       p_payload: {
-        proof_url: proofUrl,
+        proof_url: proofStoragePath ? "" : proofUrl,
         proof_storage_path: proofStoragePath,
         payer_name: paymentForm.payer_name,
         payer_bank: paymentForm.payer_bank,
