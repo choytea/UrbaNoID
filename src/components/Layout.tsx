@@ -122,7 +122,8 @@ export function Layout({ children, session, profile }: Props) {
   const sellerRoutes = ["seller", "products", "master", "orders", "shipping", "store-profile", "store-chat", "users"];
   const showSellerSidebar = Boolean(session && isStaff && sellerRoutes.includes(route));
   const showBuyerHeader = !showSellerSidebar && route !== "seller-login";
-  const showBuyerSessionActions = Boolean(showBuyerHeader && session && !isStaff);
+  const isBuyerSurfaceRoute = route === "buyer" || route === "buyer-profile";
+  const showBuyerSessionActions = Boolean(showBuyerHeader && session && isBuyerSurfaceRoute);
 
   const topbarStyle = useMemo(() => {
     if (!showBuyerHeader || !storeProfile?.banner_url) return undefined;
@@ -224,7 +225,7 @@ export function Layout({ children, session, profile }: Props) {
   }, [session?.user.id, isStaff]);
 
   function openBuyerProfileTab(tab: BuyerProfileHeaderTab) {
-    if (!session?.user.id || isStaff) {
+    if (!session?.user.id) {
       localStorage.setItem("urbanoid_buyer_profile_tab", tab);
       window.location.hash = "/buyer-login";
       return;
@@ -297,7 +298,7 @@ export function Layout({ children, session, profile }: Props) {
   }
 
   function openStoreChat(context?: StoreChatContext | null) {
-    if (!session?.user.id || isStaff) {
+    if (!session?.user.id) {
       localStorage.setItem("urbanoid_buyer_profile_tab", "chat");
       window.location.hash = "/buyer-login";
       return;
