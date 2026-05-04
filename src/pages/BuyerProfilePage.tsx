@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Session } from "@supabase/supabase-js";
 import { supabase } from "../lib/supabase";
 import { formatCurrency } from "../lib/utils";
-import { OrderMessage, OrderRow, Profile, StoreProfile } from "../types";
+import { OrderItemRow, OrderMessage, OrderRow, PaymentRow, Profile, ShipmentRow, StoreProfile } from "../types";
 
 type Props = {
   session: Session | null;
@@ -10,8 +10,41 @@ type Props = {
   onProfileUpdated?: () => void;
 };
 
+type BuyerProfileTab = "profile" | "orders" | "chat" | "store";
+type BuyerOrderTab = "ALL" | "BELUM_BAYAR" | "KONFIRMASI" | "DIKEMAS" | "DIKIRIM" | "SELESAI" | "DIBATALKAN";
+
+function displayOrderNo(order: OrderRow | null) {
+  if (!order) return "-";
+  return order.order_number || order.order_no || order.display_order_no || "-";
+}
+
+function formatDate(value: any) {
+  if (!value) return "-";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? "-" : date.toLocaleString("id-ID");
+}
+
+function statusLabel(value?: string | null) {
+  return String(value || "-").replaceAll("_", " ").toLowerCase().replace(/\b\w/g, char => char.toUpperCase());
+}
+
+function paymentStep(order: OrderRow | null) {
+  if (!order) return 0;
+  if (order.order_status === "SELESAI" || order.shipping_status === "DITERIMA") return 5;
+  if (order.shipping_status === "DIKIRIM") return 4;
+  if (order.shipping_status === "DIKEMAS" || order.order_status === "DIPROSES") return 3;
+  if (order.payment_status === "DIBAYAR") return 2;
+  if (order.payment_status === "MENUNGGU_KONFIRMASI") return 1;
+  return 0;
+}
+
+function isImageProof(url?: string | null) {
+  return !!url && /\.(png|jpe?g|webp|gif)(\?|$)/i.test(url);
+}
+
 export function BuyerProfilePage({ session, profile, onProfileUpdated }: Props) {
-  const [activeTab, setActiveTab] = useState<"profile" | "orders" | "chat" | "store">("profile");
+  const [activeTab, setActiveTab] = useState<BuyerProfileTab>(() => (localStorage.getItem("urbanoid_buyer_profile_tab") as BuyerProfileTab) || "profile");
+  const [orderTab, setOrderTab] = useState<BuyerOrderTab>("ALL");
   const [form, setForm] = useState({
     username: profile?.username || "",
     full_name: profile?.full_name || "",
@@ -25,12 +58,25 @@ export function BuyerProfilePage({ session, profile, onProfileUpdated }: Props) 
     avatar_url: profile?.avatar_url || "",
   });
   const [orders, setOrders] = useState<OrderRow[]>([]);
+  const [items, setItems] = useState<OrderItemRow[]>([]);
+  const [payments, setPayments] = useState<PaymentRow[]>([]);
+  const [shipments, setShipments] = useState<ShipmentRow[]>([]);
   const [store, setStore] = useState<StoreProfile | null>(null);
   const [followed, setFollowed] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<OrderRow | null>(null);
   const [messages, setMessages] = useState<OrderMessage[]>([]);
   const [newMessage, setNewMessage] = useState("");
   const [message, setMessage] = useState("");
+  const [paymentFile, setPaymentFile] = useState<File | null>(null);
+  const [selectedPaymentId, setSelectedPaymentId] = useState("");
+  const [submittingPayment, setSubmittingPayment] = useState(false);
+  const [paymentForm, setPaymentForm] = useState({
+    payer_name: profile?.full_name || "",
+    payer_bank: "",
+    transfer_amount: "",
+    transfer_date: new Date().toISOString().slice(0, 10),
+    buyer_note: "",
+  });
 
   useEffect(() => {
     if (!session) return;
@@ -51,19 +97,61 @@ export function BuyerProfilePage({ session, profile, onProfileUpdated }: Props) 
       postal_code: profile?.postal_code || "",
       avatar_url: profile?.avatar_url || "",
     });
+    setPaymentForm(prev => ({ ...prev, payer_name: profile?.full_name || prev.payer_name || "" }));
   }, [profile, session]);
 
   useEffect(() => {
-    if (selectedOrder?.id) loadMessages(selectedOrder.id);
-  }, [selectedOrder]);
+    localStorage.setItem("urbanoid_buyer_profile_tab", activeTab);
+  }, [activeTab]);
+
+  useEffect(() => {
+    if (selectedOrder?.id) loadOrderDetails(selectedOrder.id);
+  }, [selectedOrder?.id]);
+
+  useEffect(() => {
+    const firstPayment = payments[0];
+    if (firstPayment && !selectedPaymentId) {
+      setSelectedPaymentId(firstPayment.id);
+      setPaymentForm(prev => ({
+        ...prev,
+        transfer_amount: String(firstPayment.amount || selectedOrder?.grand_total || selectedOrder?.total_amount || ""),
+      }));
+    }
+  }, [payments, selectedPaymentId, selectedOrder]);
+
+  function setTab(tab: BuyerProfileTab) {
+    setActiveTab(tab);
+    localStorage.setItem("urbanoid_buyer_profile_tab", tab);
+  }
 
   async function loadOrders() {
-    const { data, error } = await supabase.from("orders").select("*").order("created_at", { ascending: false });
+    if (!session?.user.id) return;
+    const { data, error } = await supabase
+      .from("orders")
+      .select("*")
+      .eq("buyer_id", session.user.id)
+      .order("created_at", { ascending: false });
+
     if (!error) {
       const rows = (data || []) as OrderRow[];
       setOrders(rows);
       if (rows.length && !selectedOrder) setSelectedOrder(rows[0]);
     }
+  }
+
+  async function loadOrderDetails(orderId: string) {
+    const [{ data: itemRows }, { data: paymentRows }, { data: shipmentRows }, { data: messageRows }] = await Promise.all([
+      supabase.from("order_items").select("*").eq("order_id", orderId),
+      supabase.from("payments").select("*").eq("order_id", orderId).order("created_at", { ascending: false }),
+      supabase.from("shipments").select("*").eq("order_id", orderId),
+      supabase.from("order_messages").select("*").eq("order_id", orderId).order("created_at", { ascending: true }),
+    ]);
+
+    setItems((itemRows || []) as OrderItemRow[]);
+    setPayments((paymentRows || []) as PaymentRow[]);
+    setShipments((shipmentRows || []) as ShipmentRow[]);
+    setMessages((messageRows || []) as OrderMessage[]);
+    if ((paymentRows || [])[0]) setSelectedPaymentId((paymentRows || [])[0].id);
   }
 
   async function loadStore() {
@@ -85,11 +173,6 @@ export function BuyerProfilePage({ session, profile, onProfileUpdated }: Props) 
       .maybeSingle();
 
     setFollowed(!!follow);
-  }
-
-  async function loadMessages(orderId: string) {
-    const { data } = await supabase.from("order_messages").select("*").eq("order_id", orderId).order("created_at", { ascending: true });
-    setMessages((data || []) as OrderMessage[]);
   }
 
   async function saveProfile(event: React.FormEvent) {
@@ -155,10 +238,104 @@ export function BuyerProfilePage({ session, profile, onProfileUpdated }: Props) 
     }
 
     setNewMessage("");
-    await loadMessages(selectedOrder.id);
+    await loadOrderDetails(selectedOrder.id);
+  }
+
+  async function submitPaymentConfirmation(event: React.FormEvent) {
+    event.preventDefault();
+    if (!session || !selectedOrder) return;
+
+    const payment = payments.find(row => row.id === selectedPaymentId) || payments[0];
+    if (!payment) {
+      setMessage("Data pembayaran untuk pesanan ini belum tersedia.");
+      return;
+    }
+
+    if (!paymentFile && !payment.proof_url) {
+      setMessage("Upload bukti pembayaran terlebih dahulu.");
+      return;
+    }
+
+    setSubmittingPayment(true);
+    setMessage("Mengirim konfirmasi pembayaran...");
+
+    let proofUrl = payment.proof_url || "";
+    let proofStoragePath = payment.proof_storage_path || "";
+
+    if (paymentFile) {
+      const cleanName = paymentFile.name.toLowerCase().replace(/[^a-z0-9.\-_]+/g, "-");
+      proofStoragePath = `${session.user.id}/${selectedOrder.id}/${Date.now()}-${cleanName}`;
+      const { error: uploadError } = await supabase.storage.from("payment-proofs").upload(proofStoragePath, paymentFile, { upsert: true });
+      if (uploadError) {
+        setMessage(uploadError.message);
+        setSubmittingPayment(false);
+        return;
+      }
+      const { data } = supabase.storage.from("payment-proofs").getPublicUrl(proofStoragePath);
+      proofUrl = data.publicUrl;
+    }
+
+    const { data, error } = await supabase.rpc("buyer_confirm_payment", {
+      p_order_id: selectedOrder.id,
+      p_payment_id: payment.id,
+      p_payload: {
+        proof_url: proofUrl,
+        proof_storage_path: proofStoragePath,
+        payer_name: paymentForm.payer_name,
+        payer_bank: paymentForm.payer_bank,
+        transfer_amount: paymentForm.transfer_amount,
+        transfer_date: paymentForm.transfer_date,
+        buyer_note: paymentForm.buyer_note,
+      },
+    });
+
+    setSubmittingPayment(false);
+
+    if (error || (data as any)?.error) {
+      setMessage(error?.message || (data as any)?.error || "Konfirmasi pembayaran gagal.");
+      return;
+    }
+
+    setPaymentFile(null);
+    setMessage("Konfirmasi pembayaran berhasil dikirim. Mohon tunggu verifikasi seller/admin.");
+    await loadOrders();
+    await loadOrderDetails(selectedOrder.id);
+    setSelectedOrder(prev => prev ? { ...prev, payment_status: "MENUNGGU_KONFIRMASI" } : prev);
+  }
+
+  async function confirmReceived() {
+    if (!selectedOrder) return;
+    const ok = confirm("Konfirmasi pesanan sudah diterima?");
+    if (!ok) return;
+
+    const { data, error } = await supabase.rpc("buyer_confirm_order_received", { p_order_id: selectedOrder.id });
+    if (error || (data as any)?.error) {
+      setMessage(error?.message || (data as any)?.error || "Gagal mengonfirmasi pesanan diterima.");
+      return;
+    }
+    setMessage("Pesanan sudah dikonfirmasi diterima. Terima kasih.");
+    await loadOrders();
+    await loadOrderDetails(selectedOrder.id);
+    setSelectedOrder(prev => prev ? { ...prev, order_status: "SELESAI", shipping_status: "DITERIMA" } : prev);
   }
 
   const totalOrderValue = useMemo(() => orders.reduce((sum, order) => sum + Number(order.grand_total || order.total_amount || 0), 0), [orders]);
+
+  const filteredOrders = useMemo(() => {
+    return orders.filter(order => {
+      if (orderTab === "BELUM_BAYAR") return order.payment_status === "BELUM_DIBAYAR" || order.payment_status === "DITOLAK";
+      if (orderTab === "KONFIRMASI") return order.payment_status === "MENUNGGU_KONFIRMASI";
+      if (orderTab === "DIKEMAS") return order.order_status === "DIPROSES" || order.shipping_status === "DIKEMAS";
+      if (orderTab === "DIKIRIM") return order.shipping_status === "DIKIRIM";
+      if (orderTab === "SELESAI") return order.order_status === "SELESAI" || order.shipping_status === "DITERIMA";
+      if (orderTab === "DIBATALKAN") return order.order_status === "DIBATALKAN";
+      return true;
+    });
+  }, [orders, orderTab]);
+
+  const selectedPayment = payments.find(row => row.id === selectedPaymentId) || payments[0] || null;
+  const selectedShipment = shipments[0] || null;
+  const currentStep = paymentStep(selectedOrder);
 
   if (!session) {
     return (
@@ -171,23 +348,23 @@ export function BuyerProfilePage({ session, profile, onProfileUpdated }: Props) 
   }
 
   return (
-    <section className="panel buyer-profile-panel">
+    <section className="panel buyer-profile-panel phase-3b-7-buyer-orders">
       <div className="section-title">
         <div>
           <h1>Profil Buyer</h1>
-          <p>Kelola data profil, alamat, pesanan, chat, dan status mengikuti toko.</p>
+          <p>Kelola data profil, alamat, pesanan, pembayaran, pengiriman, dan chat seller.</p>
         </div>
         <a className="btn-secondary inline-link-button" href="#/buyer">Kembali ke Katalog</a>
       </div>
 
       <div className="profile-tab-row">
-        <button className={activeTab === "profile" ? "active" : ""} onClick={() => setActiveTab("profile")}>Profil</button>
-        <button className={activeTab === "orders" ? "active" : ""} onClick={() => setActiveTab("orders")}>Pesanan Saya</button>
-        <button className={activeTab === "chat" ? "active" : ""} onClick={() => setActiveTab("chat")}>Chat Pesanan</button>
-        <button className={activeTab === "store" ? "active" : ""} onClick={() => setActiveTab("store")}>Toko</button>
+        <button className={activeTab === "profile" ? "active" : ""} onClick={() => setTab("profile")}>Profil</button>
+        <button className={activeTab === "orders" ? "active" : ""} onClick={() => setTab("orders")}>Pesanan Saya</button>
+        <button className={activeTab === "chat" ? "active" : ""} onClick={() => setTab("chat")}>Chat Pesanan</button>
+        <button className={activeTab === "store" ? "active" : ""} onClick={() => setTab("store")}>Toko</button>
       </div>
 
-      {message && <div className="success-box">{message}</div>}
+      {message && <div className={message.toLowerCase().includes("gagal") || message.toLowerCase().includes("error") ? "error-box" : "success-box"}>{message}</div>}
 
       {activeTab === "profile" && (
         <form className="profile-form" onSubmit={saveProfile}>
@@ -214,26 +391,131 @@ export function BuyerProfilePage({ session, profile, onProfileUpdated }: Props) 
       )}
 
       {activeTab === "orders" && (
-        <div className="buyer-orders-grid">
+        <div className="buyer-orders-grid enhanced-buyer-orders">
           <div className="metric-card"><span>Total Pesanan</span><strong>{orders.length}</strong></div>
           <div className="metric-card"><span>Total Belanja</span><strong>{formatCurrency(totalOrderValue)}</strong></div>
-          <div className="table-wrap checkout-full">
-            <table className="master-table orders-table">
-              <thead><tr><th>No</th><th>Nomor Pesanan</th><th>Status</th><th>Pembayaran</th><th>Pengiriman</th><th>Total</th><th>Aksi</th></tr></thead>
-              <tbody>
-                {orders.map((order, index) => (
-                  <tr key={order.id}>
-                    <td>{index + 1}</td>
-                    <td>{order.order_number}</td>
-                    <td>{order.order_status}</td>
-                    <td>{order.payment_status}</td>
-                    <td>{order.shipping_status}</td>
-                    <td>{formatCurrency(Number(order.grand_total || order.total_amount || 0))}</td>
-                    <td><button onClick={() => { setSelectedOrder(order); setActiveTab("chat"); }}>Chat</button></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+
+          <div className="buyer-order-tabs checkout-full">
+            {[
+              ["ALL", "Semua"],
+              ["BELUM_BAYAR", "Belum Bayar"],
+              ["KONFIRMASI", "Menunggu Verifikasi"],
+              ["DIKEMAS", "Sedang Dikemas"],
+              ["DIKIRIM", "Dikirim"],
+              ["SELESAI", "Selesai"],
+              ["DIBATALKAN", "Dibatalkan"],
+            ].map(([key, label]) => (
+              <button key={key} className={orderTab === key ? "active" : ""} onClick={() => setOrderTab(key as BuyerOrderTab)}>{label}</button>
+            ))}
+          </div>
+
+          <div className="buyer-order-layout checkout-full">
+            <aside className="buyer-order-list">
+              {filteredOrders.map(order => (
+                <button key={order.id} className={selectedOrder?.id === order.id ? "active" : ""} onClick={() => setSelectedOrder(order)}>
+                  <strong>{displayOrderNo(order)}</strong>
+                  <span>{formatDate(order.created_at)}</span>
+                  <em>{formatCurrency(Number(order.grand_total || order.total_amount || 0))}</em>
+                  <small>{statusLabel(order.order_status)} · {statusLabel(order.payment_status)} · {statusLabel(order.shipping_status)}</small>
+                </button>
+              ))}
+              {filteredOrders.length === 0 && <div className="empty-state">Belum ada pesanan pada filter ini.</div>}
+            </aside>
+
+            <section className="buyer-order-detail">
+              {!selectedOrder ? (
+                <div className="empty-state">Pilih pesanan untuk melihat detail status.</div>
+              ) : (
+                <>
+                  <div className="buyer-order-detail-head">
+                    <div>
+                      <h2>{displayOrderNo(selectedOrder)}</h2>
+                      <p>{formatDate(selectedOrder.created_at)}</p>
+                    </div>
+                    <strong>{formatCurrency(Number(selectedOrder.grand_total || selectedOrder.total_amount || 0))}</strong>
+                  </div>
+
+                  <div className="order-progress-line">
+                    {["Belum Bayar", "Verifikasi", "Diproses", "Dikirim", "Diterima"].map((label, index) => (
+                      <div key={label} className={currentStep >= index ? "active" : ""}>
+                        <span>{index + 1}</span>
+                        <small>{label}</small>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="buyer-order-info-grid">
+                    <div><span>Status Order</span><strong>{statusLabel(selectedOrder.order_status)}</strong></div>
+                    <div><span>Pembayaran</span><strong>{statusLabel(selectedOrder.payment_status)}</strong></div>
+                    <div><span>Pengiriman</span><strong>{statusLabel(selectedOrder.shipping_status)}</strong></div>
+                    <div><span>Resi</span><strong>{selectedShipment?.tracking_number || "Belum tersedia"}</strong></div>
+                  </div>
+
+                  <div className="buyer-order-address-card">
+                    <h3>Alamat Pengiriman</h3>
+                    <p>{selectedOrder.shipping_address || "-"}</p>
+                    <p>{[selectedOrder.shipping_district, selectedOrder.shipping_city, selectedOrder.shipping_province, selectedOrder.shipping_postal_code].filter(Boolean).join(", ")}</p>
+                    <p>Ekspedisi: <strong>{selectedShipment?.courier_name || selectedShipment?.expedition_name || "-"} {selectedShipment?.service_name ? `/ ${selectedShipment.service_name}` : ""}</strong></p>
+                  </div>
+
+                  <div className="table-wrap buyer-order-items-table">
+                    <table className="master-table compact-table">
+                      <thead><tr><th>Produk</th><th>Varian</th><th>Qty</th><th>Subtotal</th></tr></thead>
+                      <tbody>
+                        {items.map(item => (
+                          <tr key={item.id}>
+                            <td>{item.product_name || "-"}</td>
+                            <td>{[item.color_name, item.size_name, item.pattern_type].filter(Boolean).join(" / ")}</td>
+                            <td>{item.qty || 0}</td>
+                            <td>{formatCurrency(Number(item.subtotal || 0))}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <form className="payment-confirm-card" onSubmit={submitPaymentConfirmation}>
+                    <h3>Pembayaran & Konfirmasi</h3>
+                    <p className="muted-text">Upload bukti transfer agar seller dapat memverifikasi pembayaran dan mulai memproses pesanan.</p>
+
+                    {selectedPayment && (
+                      <div className="payment-current-status">
+                        <span>Metode: <strong>{selectedPayment.payment_method || selectedPayment.payment_method_code || "BANK_TRANSFER"}</strong></span>
+                        <span>Status: <strong>{statusLabel(selectedPayment.payment_status)}</strong></span>
+                        <span>Total: <strong>{formatCurrency(Number(selectedPayment.amount || selectedOrder.grand_total || 0))}</strong></span>
+                      </div>
+                    )}
+
+                    {selectedPayment?.proof_url && (
+                      <div className="payment-proof-preview">
+                        {isImageProof(selectedPayment.proof_url) ? <img src={selectedPayment.proof_url} alt="Bukti pembayaran" /> : null}
+                        <a href={selectedPayment.proof_url} target="_blank" rel="noreferrer">Lihat bukti pembayaran</a>
+                        <small>Dikirim: {formatDate(selectedPayment.proof_uploaded_at)}</small>
+                      </div>
+                    )}
+
+                    <div className="checkout-grid payment-confirm-grid">
+                      <label>Nama Pengirim<input value={paymentForm.payer_name} onChange={e => setPaymentForm({ ...paymentForm, payer_name: e.target.value })} placeholder="Nama pada rekening/e-wallet" /></label>
+                      <label>Bank / E-Wallet<input value={paymentForm.payer_bank} onChange={e => setPaymentForm({ ...paymentForm, payer_bank: e.target.value })} placeholder="BCA, BRI, Mandiri, Dana, dll." /></label>
+                      <label>Nominal Transfer<input value={paymentForm.transfer_amount} onChange={e => setPaymentForm({ ...paymentForm, transfer_amount: e.target.value })} placeholder="115000" /></label>
+                      <label>Tanggal Transfer<input type="date" value={paymentForm.transfer_date} onChange={e => setPaymentForm({ ...paymentForm, transfer_date: e.target.value })} /></label>
+                      <label className="checkout-full">Catatan Pembayaran<textarea value={paymentForm.buyer_note} onChange={e => setPaymentForm({ ...paymentForm, buyer_note: e.target.value })} rows={2} placeholder="Contoh: transfer dari rekening atas nama ..." /></label>
+                      <label className="checkout-full">Bukti Pembayaran<input type="file" accept="image/*,.pdf" onChange={e => setPaymentFile(e.target.files?.[0] || null)} /></label>
+                    </div>
+
+                    {selectedPayment?.rejection_reason && <div className="error-box">Bukti sebelumnya ditolak: {selectedPayment.rejection_reason}</div>}
+
+                    <div className="button-row">
+                      <button className="btn-primary" type="submit" disabled={submittingPayment || selectedOrder.payment_status === "DIBAYAR"}>
+                        {submittingPayment ? "Mengirim..." : selectedOrder.payment_status === "DIBAYAR" ? "Pembayaran Terkonfirmasi" : "Kirim Konfirmasi Pembayaran"}
+                      </button>
+                      {selectedOrder.shipping_status === "DIKIRIM" && <button type="button" onClick={confirmReceived}>Pesanan Sudah Diterima</button>}
+                      <button type="button" onClick={() => setTab("chat")}>Chat Seller</button>
+                    </div>
+                  </form>
+                </>
+              )}
+            </section>
           </div>
         </div>
       )}
@@ -243,15 +525,15 @@ export function BuyerProfilePage({ session, profile, onProfileUpdated }: Props) 
           <aside>
             <h3>Pilih Pesanan</h3>
             {orders.map(order => (
-              <button key={order.id} className={selectedOrder?.id === order.id ? "active" : ""} onClick={() => setSelectedOrder(order)}>{order.order_number}</button>
+              <button key={order.id} className={selectedOrder?.id === order.id ? "active" : ""} onClick={() => setSelectedOrder(order)}>{displayOrderNo(order)}</button>
             ))}
           </aside>
           <section>
-            <h3>Chat Pesanan {selectedOrder?.order_number || "-"}</h3>
+            <h3>Chat Pesanan {displayOrderNo(selectedOrder)}</h3>
             <div className="chat-box">
               {messages.map(msg => (
                 <div key={msg.id} className={`chat-bubble ${msg.sender_role === "BUYER" ? "buyer" : "seller"}`}>
-                  <small>{msg.sender_role || "USER"} · {new Date(msg.created_at).toLocaleString("id-ID")}</small>
+                  <small>{msg.sender_role || "USER"} · {formatDate(msg.created_at)}</small>
                   <span>{msg.message}</span>
                 </div>
               ))}

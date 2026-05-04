@@ -1,15 +1,26 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { formatCurrency } from "../lib/utils";
-import { OrderMessage, OrderRow } from "../types";
+import { OrderMessage, OrderRow, PaymentRow, ShipmentRow } from "../types";
 
 type OrderItem = Record<string, any>;
-type PaymentRow = Record<string, any>;
-type ShipmentRow = Record<string, any>;
 
 function formatDate(value: any) {
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? "-" : date.toLocaleString("id-ID");
+}
+
+function displayOrderNo(order: OrderRow | null) {
+  if (!order) return "-";
+  return order.order_number || order.order_no || order.display_order_no || "-";
+}
+
+function statusLabel(value?: string | null) {
+  return String(value || "-").replaceAll("_", " ").toLowerCase().replace(/\b\w/g, char => char.toUpperCase());
+}
+
+function isImageProof(url?: string | null) {
+  return !!url && /\.(png|jpe?g|webp|gif)(\?|$)/i.test(url);
 }
 
 export function OrdersPage() {
@@ -25,6 +36,7 @@ export function OrdersPage() {
   const [error, setError] = useState("");
   const [bookingShipmentId, setBookingShipmentId] = useState("");
   const [trackingShipmentId, setTrackingShipmentId] = useState("");
+  const [paymentActionId, setPaymentActionId] = useState("");
   const [loading, setLoading] = useState(true);
 
   async function load() {
@@ -72,7 +84,15 @@ export function OrdersPage() {
       return;
     }
 
+    if (field === "payment_status") {
+      await supabase.from("payments").update({ payment_status: value, updated_at: new Date().toISOString() }).eq("order_id", selectedOrder.id);
+    }
+    if (field === "shipping_status") {
+      await supabase.from("shipments").update({ shipping_status: value }).eq("order_id", selectedOrder.id);
+    }
+
     await load();
+    await loadDetails(selectedOrder.id);
     setSelectedOrder(prev => prev ? { ...prev, [field]: value } : prev);
   }
 
@@ -110,7 +130,7 @@ export function OrdersPage() {
             <p><strong>No Order:</strong> ${displayOrderNo(selectedOrder)}</p>
             <p><strong>Ekspedisi:</strong> ${row.courier_name || row.expedition_name || "-"} ${row.service_name ? "/ " + row.service_name : ""}</p>
             <p><strong>Resi:</strong> ${row.tracking_number || "BELUM ADA"}</p>
-            <div class="barcode">${row.tracking_number || selectedOrder.order_number || "NO-RESI"}</div>
+            <div class="barcode">${row.tracking_number || displayOrderNo(selectedOrder) || "NO-RESI"}</div>
             <h2>Penerima</h2>
             <p><strong>${row.recipient_name || selectedOrder.customer_name || "-"}</strong></p>
             <p>${row.phone || selectedOrder.customer_phone || "-"}</p>
@@ -236,6 +256,49 @@ export function OrdersPage() {
   }
 
 
+
+  async function reviewPayment(row: PaymentRow, action: "APPROVE" | "REJECT") {
+    if (!selectedOrder) return;
+
+    const note = action === "REJECT"
+      ? window.prompt("Catatan penolakan bukti pembayaran:", row.rejection_reason || "")
+      : window.prompt("Catatan konfirmasi pembayaran (opsional):", row.seller_note || "");
+
+    if (note === null) return;
+
+    const ok = action === "APPROVE"
+      ? confirm("Konfirmasi pembayaran ini sebagai DIBAYAR dan lanjutkan pesanan ke proses dikemas?")
+      : confirm("Tolak bukti pembayaran ini?");
+
+    if (!ok) return;
+
+    setError("");
+    setPaymentActionId(row.id);
+
+    const { data, error } = await supabase.rpc("seller_review_payment", {
+      p_order_id: selectedOrder.id,
+      p_payment_id: row.id,
+      p_action: action,
+      p_note: note,
+    });
+
+    setPaymentActionId("");
+
+    if (error || (data as any)?.error) {
+      setError(error?.message || (data as any)?.error || "Gagal memproses pembayaran.");
+      return;
+    }
+
+    await load();
+    await loadDetails(selectedOrder.id);
+    setSelectedOrder(prev => prev ? {
+      ...prev,
+      payment_status: action === "APPROVE" ? "DIBAYAR" : "DITOLAK",
+      order_status: action === "APPROVE" ? "DIPROSES" : "MENUNGGU_PEMBAYARAN",
+      shipping_status: action === "APPROVE" ? (prev.shipping_status === "BELUM_DIKIRIM" ? "DIKEMAS" : prev.shipping_status) : prev.shipping_status,
+    } : prev);
+  }
+
   async function sendMessage() {
     if (!selectedOrder || !newMessage.trim()) return;
 
@@ -257,7 +320,7 @@ export function OrdersPage() {
   const filtered = useMemo(() => {
     return orders.filter(order => {
       const q = query.trim().toLowerCase();
-      const matchQuery = !q || [order.order_number, order.customer_name, order.customer_email, order.customer_phone, order.order_status, order.payment_status, order.shipping_status]
+      const matchQuery = !q || [order.order_number, order.order_no, order.customer_name, order.customer_email, order.customer_phone, order.order_status, order.payment_status, order.shipping_status]
         .some(value => String(value || "").toLowerCase().includes(q));
       const matchStatus = statusFilter === "SEMUA" || order.order_status === statusFilter || order.payment_status === statusFilter || order.shipping_status === statusFilter;
       return matchQuery && matchStatus;
@@ -308,7 +371,7 @@ export function OrdersPage() {
         <div className="orders-list">
           {filtered.map(order => (
             <button key={order.id} className={selectedOrder?.id === order.id ? "order-list-card active" : "order-list-card"} onClick={() => setSelectedOrder(order)}>
-              <strong>{order.order_number}</strong>
+              <strong>{displayOrderNo(order)}</strong>
               <span>{order.customer_name || "-"} · {formatDate(order.created_at)}</span>
               <em>{formatCurrency(Number(order.grand_total || order.total_amount || 0))}</em>
               <small>{order.order_status} / {order.payment_status} / {order.shipping_status}</small>
@@ -324,7 +387,7 @@ export function OrdersPage() {
             <>
               <div className="order-detail-head">
                 <div>
-                  <h2>{selectedOrder.order_number}</h2>
+                  <h2>{displayOrderNo(selectedOrder)}</h2>
                   <p>{selectedOrder.customer_name} · {selectedOrder.customer_email} · {selectedOrder.customer_phone}</p>
                 </div>
                 <strong>{formatCurrency(Number(selectedOrder.grand_total || selectedOrder.total_amount || 0))}</strong>
@@ -394,7 +457,23 @@ export function OrdersPage() {
                 <div>
                   <h3>Pembayaran</h3>
                   {payments.map(row => (
-                    <p key={row.id}>{row.payment_method || row.payment_method_code || "-"} · {row.payment_status || "-"} · {formatCurrency(Number(row.amount || 0))}</p>
+                    <div className="payment-review-card" key={row.id}>
+                      <p><strong>{row.payment_method || row.payment_method_code || "BANK_TRANSFER"}</strong> · {statusLabel(row.payment_status)} · {formatCurrency(Number(row.amount || 0))}</p>
+                      {row.payer_name && <p>Pengirim: <strong>{row.payer_name}</strong> {row.payer_bank ? `· ${row.payer_bank}` : ""}</p>}
+                      {row.transfer_amount && <p>Nominal transfer: <strong>{formatCurrency(Number(row.transfer_amount || 0))}</strong> · {row.transfer_date || "-"}</p>}
+                      {row.buyer_note && <p>Catatan buyer: {row.buyer_note}</p>}
+                      {row.proof_url && (
+                        <div className="seller-payment-proof">
+                          {isImageProof(row.proof_url) ? <img src={row.proof_url} alt="Bukti pembayaran" /> : null}
+                          <a href={row.proof_url} target="_blank" rel="noreferrer">Lihat Bukti Pembayaran</a>
+                        </div>
+                      )}
+                      {row.rejection_reason && <p className="shipment-error-note">Ditolak: {row.rejection_reason}</p>}
+                      <div className="button-row mini-button-row">
+                        <button className="btn-primary" disabled={paymentActionId === row.id || row.payment_status === "DIBAYAR"} onClick={() => reviewPayment(row, "APPROVE")}>Konfirmasi Dibayar</button>
+                        <button disabled={paymentActionId === row.id || row.payment_status === "DIBAYAR"} onClick={() => reviewPayment(row, "REJECT")}>Tolak Bukti</button>
+                      </div>
+                    </div>
                   ))}
                   {payments.length === 0 && <p>Belum ada metode pembayaran tercatat.</p>}
                 </div>

@@ -219,6 +219,11 @@ export function Layout({ children, session, profile }: Props) {
     };
   }, [session?.user.id, isStaff]);
 
+  function openBuyerOrders() {
+    localStorage.setItem("urbanoid_buyer_profile_tab", "orders");
+    window.location.hash = "/buyer-profile";
+  }
+
   function openCartFromHeader() {
     if (getRoute() === "buyer") {
       requestOpenCart();
@@ -326,6 +331,12 @@ export function Layout({ children, session, profile }: Props) {
                 <MessageCircle size={17} /> Chat Toko
                 {buyerChatUnread > 0 && <span className="nav-badge">{badgeLabel(buyerChatUnread)}</span>}
               </button>
+
+              {session && !isStaff && (
+                <button type="button" className="header-auth-btn" onClick={openBuyerOrders}>
+                  <ClipboardList size={17} /> Pesanan Saya
+                </button>
+              )}
 
               <button type="button" className="header-auth-btn buyer-cart-header-btn" onClick={openCartFromHeader}>
                 <ShoppingBag size={17} /> Keranjang {cartBadge > 0 ? `(${cartBadge})` : ""}
