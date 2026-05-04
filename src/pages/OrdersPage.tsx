@@ -626,7 +626,7 @@ export function OrdersPage() {
       </div>
 
       {selectedProof && (
-        <div className="modal-overlay proof-viewer-overlay" onMouseDown={() => setSelectedProof(null)}>
+        <div className="modal-backdrop proof-viewer-overlay" onMouseDown={() => setSelectedProof(null)}>
           <div className="proof-viewer-modal" onMouseDown={event => event.stopPropagation()}>
             <div className="proof-viewer-head">
               <div>
