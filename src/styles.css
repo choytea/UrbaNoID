@@ -6508,3 +6508,81 @@ button.danger {
     width: 100%;
   }
 }
+
+/* ============================================================
+   Phase 3B.7J: Buyer Order Flow Width + Seller Proof Print Modal
+   ============================================================ */
+
+.phase-3b-7-buyer-orders .buyer-orders-grid.enhanced-buyer-orders {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  width: 100%;
+}
+
+.phase-3b-7-buyer-orders .buyer-order-tabs.checkout-full {
+  grid-column: 1 / -1;
+}
+
+.phase-3b-7-buyer-orders .buyer-order-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  overflow-x: visible;
+  scrollbar-width: none;
+  padding: 2px 0 4px;
+}
+
+.phase-3b-7-buyer-orders .buyer-order-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.phase-3b-7-buyer-orders .buyer-order-tabs button {
+  flex: 1 1 145px;
+  min-width: max-content;
+  justify-content: center;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.phase-3b-7-buyer-orders .buyer-order-layout.checkout-full {
+  grid-column: 1 / -1;
+  width: 100%;
+}
+
+.proof-viewer-actions .btn-primary {
+  min-height: 42px;
+  border-radius: 14px;
+  padding: 0 16px;
+  font-weight: 950;
+}
+
+@media (max-width: 1100px) {
+  .phase-3b-7-buyer-orders .buyer-orders-grid.enhanced-buyer-orders {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .proof-viewer-actions {
+    flex-wrap: wrap;
+  }
+
+  .proof-viewer-actions .btn-primary,
+  .proof-viewer-actions .btn-secondary-link,
+  .proof-viewer-actions button {
+    flex: 1 1 150px;
+  }
+}
+
+@media (max-width: 560px) {
+  .phase-3b-7-buyer-orders .buyer-orders-grid.enhanced-buyer-orders {
+    grid-template-columns: 1fr;
+  }
+
+  .phase-3b-7-buyer-orders .buyer-order-tabs button {
+    flex: 1 1 calc(50% - 8px);
+    min-width: 0;
+    padding-left: 10px;
+    padding-right: 10px;
+    white-space: normal;
+    line-height: 1.15;
+  }
+}
