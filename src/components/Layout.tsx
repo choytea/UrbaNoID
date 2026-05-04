@@ -46,6 +46,9 @@ type Route =
   | "login";
 
 const CHAT_BADGE_EVENT = "urbanoid-chat-badge-refresh";
+const BUYER_PROFILE_TAB_EVENT = "urbanoid-buyer-profile-tab";
+
+type BuyerProfileHeaderTab = "profile" | "orders" | "chat" | "store";
 
 const masterMenuItems = [
   { key: "showcases", label: "Etalase" },
@@ -119,6 +122,7 @@ export function Layout({ children, session, profile }: Props) {
   const sellerRoutes = ["seller", "products", "master", "orders", "shipping", "store-profile", "store-chat", "users"];
   const showSellerSidebar = Boolean(session && isStaff && sellerRoutes.includes(route));
   const showBuyerHeader = !showSellerSidebar && route !== "seller-login";
+  const showBuyerSessionActions = Boolean(showBuyerHeader && session && !isStaff);
 
   const topbarStyle = useMemo(() => {
     if (!showBuyerHeader || !storeProfile?.banner_url) return undefined;
@@ -219,9 +223,20 @@ export function Layout({ children, session, profile }: Props) {
     };
   }, [session?.user.id, isStaff]);
 
-  function openBuyerOrders() {
-    localStorage.setItem("urbanoid_buyer_profile_tab", "orders");
+  function openBuyerProfileTab(tab: BuyerProfileHeaderTab) {
+    if (!session?.user.id || isStaff) {
+      localStorage.setItem("urbanoid_buyer_profile_tab", tab);
+      window.location.hash = "/buyer-login";
+      return;
+    }
+
+    localStorage.setItem("urbanoid_buyer_profile_tab", tab);
+    window.dispatchEvent(new CustomEvent(BUYER_PROFILE_TAB_EVENT, { detail: tab }));
     window.location.hash = "/buyer-profile";
+  }
+
+  function openBuyerOrders() {
+    openBuyerProfileTab("orders");
   }
 
   function openCartFromHeader() {
@@ -283,7 +298,8 @@ export function Layout({ children, session, profile }: Props) {
 
   function openStoreChat(context?: StoreChatContext | null) {
     if (!session?.user.id || isStaff) {
-      window.location.hash = "/buyer-register";
+      localStorage.setItem("urbanoid_buyer_profile_tab", "chat");
+      window.location.hash = "/buyer-login";
       return;
     }
     setChatContext(context || null);
@@ -332,8 +348,8 @@ export function Layout({ children, session, profile }: Props) {
                 {buyerChatUnread > 0 && <span className="nav-badge">{badgeLabel(buyerChatUnread)}</span>}
               </button>
 
-              {session && !isStaff && (
-                <button type="button" className="header-auth-btn" onClick={openBuyerOrders}>
+              {showBuyerSessionActions && (
+                <button type="button" className="header-auth-btn buyer-orders-header-btn" onClick={openBuyerOrders}>
                   <ClipboardList size={17} /> Pesanan Saya
                 </button>
               )}
@@ -344,15 +360,15 @@ export function Layout({ children, session, profile }: Props) {
             </>
           )}
 
-          {session && !isStaff && (
-            <a className="header-auth-btn profile-header-btn" href="#/buyer-profile">
+          {showBuyerSessionActions && (
+            <button type="button" className="header-auth-btn profile-header-btn" onClick={() => openBuyerProfileTab("profile")}>
               {profile?.avatar_url ? (
                 <img src={profile.avatar_url} alt={profile.full_name || "Profil Buyer"} />
               ) : (
                 <span className="profile-header-initial">{profileInitial(profile)}</span>
               )}
               <span>Profil Buyer</span>
-            </a>
+            </button>
           )}
 
           {!session && showBuyerHeader && (

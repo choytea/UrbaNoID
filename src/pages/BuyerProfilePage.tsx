@@ -13,6 +13,12 @@ type Props = {
 type BuyerProfileTab = "profile" | "orders" | "chat" | "store";
 type BuyerOrderTab = "ALL" | "BELUM_BAYAR" | "KONFIRMASI" | "DIKEMAS" | "DIKIRIM" | "SELESAI" | "DIBATALKAN";
 
+const BUYER_PROFILE_TAB_EVENT = "urbanoid-buyer-profile-tab";
+
+function normalizeBuyerProfileTab(value: any): BuyerProfileTab {
+  return ["profile", "orders", "chat", "store"].includes(String(value)) ? value as BuyerProfileTab : "profile";
+}
+
 function displayOrderNo(order: OrderRow | null) {
   if (!order) return "-";
   return order.order_number || order.order_no || order.display_order_no || "-";
@@ -43,7 +49,7 @@ function isImageProof(url?: string | null) {
 }
 
 export function BuyerProfilePage({ session, profile, onProfileUpdated }: Props) {
-  const [activeTab, setActiveTab] = useState<BuyerProfileTab>(() => (localStorage.getItem("urbanoid_buyer_profile_tab") as BuyerProfileTab) || "profile");
+  const [activeTab, setActiveTab] = useState<BuyerProfileTab>(() => normalizeBuyerProfileTab(localStorage.getItem("urbanoid_buyer_profile_tab")));
   const [orderTab, setOrderTab] = useState<BuyerOrderTab>("ALL");
   const [form, setForm] = useState({
     username: profile?.username || "",
@@ -101,6 +107,25 @@ export function BuyerProfilePage({ session, profile, onProfileUpdated }: Props) 
   }, [profile, session]);
 
   useEffect(() => {
+    function applyStoredTab() {
+      setActiveTab(normalizeBuyerProfileTab(localStorage.getItem("urbanoid_buyer_profile_tab")));
+    }
+
+    function onProfileTab(event: Event) {
+      const tab = normalizeBuyerProfileTab((event as CustomEvent).detail);
+      setTab(tab);
+    }
+
+    window.addEventListener(BUYER_PROFILE_TAB_EVENT, onProfileTab as EventListener);
+    window.addEventListener("focus", applyStoredTab);
+
+    return () => {
+      window.removeEventListener(BUYER_PROFILE_TAB_EVENT, onProfileTab as EventListener);
+      window.removeEventListener("focus", applyStoredTab);
+    };
+  }, []);
+
+  useEffect(() => {
     localStorage.setItem("urbanoid_buyer_profile_tab", activeTab);
   }, [activeTab]);
 
@@ -120,8 +145,9 @@ export function BuyerProfilePage({ session, profile, onProfileUpdated }: Props) 
   }, [payments, selectedPaymentId, selectedOrder]);
 
   function setTab(tab: BuyerProfileTab) {
-    setActiveTab(tab);
-    localStorage.setItem("urbanoid_buyer_profile_tab", tab);
+    const nextTab = normalizeBuyerProfileTab(tab);
+    setActiveTab(nextTab);
+    localStorage.setItem("urbanoid_buyer_profile_tab", nextTab);
   }
 
   async function loadOrders() {
@@ -336,6 +362,14 @@ export function BuyerProfilePage({ session, profile, onProfileUpdated }: Props) 
   const selectedPayment = payments.find(row => row.id === selectedPaymentId) || payments[0] || null;
   const selectedShipment = shipments[0] || null;
   const currentStep = paymentStep(selectedOrder);
+  const pageTitle = activeTab === "orders" ? "Pesanan Saya" : activeTab === "chat" ? "Chat Pesanan" : activeTab === "store" ? "Profil Toko" : "Profil Buyer";
+  const pageDescription = activeTab === "orders"
+    ? "Pantau transaksi, pembayaran, pengiriman, resi, dan bukti transfer pesanan Anda."
+    : activeTab === "chat"
+      ? "Kelola percakapan dengan seller berdasarkan pesanan yang dipilih."
+      : activeTab === "store"
+        ? "Lihat informasi toko, kontak, dan status mengikuti toko."
+        : "Edit data profil, alamat pengiriman, nomor HP, email, dan foto buyer.";
 
   if (!session) {
     return (
@@ -351,8 +385,8 @@ export function BuyerProfilePage({ session, profile, onProfileUpdated }: Props) 
     <section className="panel buyer-profile-panel phase-3b-7-buyer-orders">
       <div className="section-title">
         <div>
-          <h1>Profil Buyer</h1>
-          <p>Kelola data profil, alamat, pesanan, pembayaran, pengiriman, dan chat seller.</p>
+          <h1>{pageTitle}</h1>
+          <p>{pageDescription}</p>
         </div>
         <a className="btn-secondary inline-link-button" href="#/buyer">Kembali ke Katalog</a>
       </div>

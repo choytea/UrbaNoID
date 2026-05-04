@@ -37,6 +37,7 @@ export function OrdersPage() {
   const [bookingShipmentId, setBookingShipmentId] = useState("");
   const [trackingShipmentId, setTrackingShipmentId] = useState("");
   const [paymentActionId, setPaymentActionId] = useState("");
+  const [selectedProof, setSelectedProof] = useState<{ url: string; title: string; isImage: boolean } | null>(null);
   const [loading, setLoading] = useState(true);
 
   async function load() {
@@ -430,6 +431,61 @@ export function OrdersPage() {
                   <p>{[selectedOrder.shipping_district, selectedOrder.shipping_city, selectedOrder.shipping_province, selectedOrder.shipping_postal_code].filter(Boolean).join(", ")}</p>
                 </div>
                 <div>
+                  <h3>Pembayaran</h3>
+                  {payments.map(row => (
+                    <div className="payment-review-card" key={row.id}>
+                      <p><strong>{row.payment_method || row.payment_method_code || "BANK_TRANSFER"}</strong> · {statusLabel(row.payment_status)} · {formatCurrency(Number(row.amount || 0))}</p>
+                      {row.payer_name && <p>Pengirim: <strong>{row.payer_name}</strong> {row.payer_bank ? `· ${row.payer_bank}` : ""}</p>}
+                      {row.transfer_amount && <p>Nominal transfer: <strong>{formatCurrency(Number(row.transfer_amount || 0))}</strong> · {row.transfer_date || "-"}</p>}
+                      {row.buyer_note && <p>Catatan buyer: {row.buyer_note}</p>}
+                      {row.proof_url && (
+                        <div className="seller-payment-proof compact-proof">
+                          {isImageProof(row.proof_url) ? (
+                            <button
+                              type="button"
+                              className="proof-thumb-button"
+                              onClick={() => setSelectedProof({
+                                url: row.proof_url!,
+                                title: `Bukti Pembayaran ${displayOrderNo(selectedOrder)}`,
+                                isImage: true,
+                              })}
+                              title="Lihat bukti pembayaran"
+                            >
+                              <img src={row.proof_url} alt="Thumbnail bukti pembayaran" />
+                              <span className="proof-eye" aria-hidden="true">👁</span>
+                            </button>
+                          ) : (
+                            <div className="proof-file-thumb">
+                              <span>PDF</span>
+                            </div>
+                          )}
+                          <div className="proof-action-stack">
+                            <strong>Bukti Pembayaran</strong>
+                            <button
+                              type="button"
+                              className="btn-icon-eye"
+                              onClick={() => setSelectedProof({
+                                url: row.proof_url!,
+                                title: `Bukti Pembayaran ${displayOrderNo(selectedOrder)}`,
+                                isImage: isImageProof(row.proof_url),
+                              })}
+                            >
+                              👁 View
+                            </button>
+                            <a href={row.proof_url} target="_blank" rel="noreferrer">Buka tab baru</a>
+                          </div>
+                        </div>
+                      )}
+                      {row.rejection_reason && <p className="shipment-error-note">Ditolak: {row.rejection_reason}</p>}
+                      <div className="button-row mini-button-row">
+                        <button className="btn-primary" disabled={paymentActionId === row.id || row.payment_status === "DIBAYAR"} onClick={() => reviewPayment(row, "APPROVE")}>Konfirmasi Dibayar</button>
+                        <button disabled={paymentActionId === row.id || row.payment_status === "DIBAYAR"} onClick={() => reviewPayment(row, "REJECT")}>Tolak Bukti</button>
+                      </div>
+                    </div>
+                  ))}
+                  {payments.length === 0 && <p>Belum ada metode pembayaran tercatat.</p>}
+                </div>
+                <div>
                   <h3>Pengiriman</h3>
                   {shipments.map(row => (
                     <div className="shipment-card" key={row.id}>
@@ -453,29 +509,6 @@ export function OrdersPage() {
                     </div>
                   ))}
                   {shipments.length === 0 && <p>-</p>}
-                </div>
-                <div>
-                  <h3>Pembayaran</h3>
-                  {payments.map(row => (
-                    <div className="payment-review-card" key={row.id}>
-                      <p><strong>{row.payment_method || row.payment_method_code || "BANK_TRANSFER"}</strong> · {statusLabel(row.payment_status)} · {formatCurrency(Number(row.amount || 0))}</p>
-                      {row.payer_name && <p>Pengirim: <strong>{row.payer_name}</strong> {row.payer_bank ? `· ${row.payer_bank}` : ""}</p>}
-                      {row.transfer_amount && <p>Nominal transfer: <strong>{formatCurrency(Number(row.transfer_amount || 0))}</strong> · {row.transfer_date || "-"}</p>}
-                      {row.buyer_note && <p>Catatan buyer: {row.buyer_note}</p>}
-                      {row.proof_url && (
-                        <div className="seller-payment-proof">
-                          {isImageProof(row.proof_url) ? <img src={row.proof_url} alt="Bukti pembayaran" /> : null}
-                          <a href={row.proof_url} target="_blank" rel="noreferrer">Lihat Bukti Pembayaran</a>
-                        </div>
-                      )}
-                      {row.rejection_reason && <p className="shipment-error-note">Ditolak: {row.rejection_reason}</p>}
-                      <div className="button-row mini-button-row">
-                        <button className="btn-primary" disabled={paymentActionId === row.id || row.payment_status === "DIBAYAR"} onClick={() => reviewPayment(row, "APPROVE")}>Konfirmasi Dibayar</button>
-                        <button disabled={paymentActionId === row.id || row.payment_status === "DIBAYAR"} onClick={() => reviewPayment(row, "REJECT")}>Tolak Bukti</button>
-                      </div>
-                    </div>
-                  ))}
-                  {payments.length === 0 && <p>Belum ada metode pembayaran tercatat.</p>}
                 </div>
               </div>
 
@@ -515,6 +548,31 @@ export function OrdersPage() {
           )}
         </div>
       </div>
+
+      {selectedProof && (
+        <div className="modal-overlay proof-viewer-overlay" onMouseDown={() => setSelectedProof(null)}>
+          <div className="proof-viewer-modal" onMouseDown={event => event.stopPropagation()}>
+            <div className="proof-viewer-head">
+              <div>
+                <h2>{selectedProof.title}</h2>
+                <p>Preview bukti pembayaran buyer.</p>
+              </div>
+              <button type="button" className="modal-close-btn" onClick={() => setSelectedProof(null)}>×</button>
+            </div>
+            <div className="proof-viewer-body">
+              {selectedProof.isImage ? (
+                <img src={selectedProof.url} alt={selectedProof.title} />
+              ) : (
+                <iframe src={selectedProof.url} title={selectedProof.title} />
+              )}
+            </div>
+            <div className="proof-viewer-actions">
+              <a className="btn-secondary-link" href={selectedProof.url} target="_blank" rel="noreferrer">Buka di Tab Baru</a>
+              <button type="button" onClick={() => setSelectedProof(null)}>Tutup</button>
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 }

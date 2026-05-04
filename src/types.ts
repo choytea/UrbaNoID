@@ -145,6 +145,76 @@ export type StoreChatContext = {
 };
 
 
+export type PaymentRow = {
+  id: string;
+  order_id: string;
+  payment_method: string | null;
+  payment_method_code?: string | null;
+  payment_status: string | null;
+  amount: number | null;
+  proof_url?: string | null;
+  proof_storage_path?: string | null;
+  proof_uploaded_at?: string | null;
+  payer_name?: string | null;
+  payer_bank?: string | null;
+  transfer_amount?: number | null;
+  transfer_date?: string | null;
+  buyer_note?: string | null;
+  seller_note?: string | null;
+  confirmed_at?: string | null;
+  confirmed_by?: string | null;
+  rejected_at?: string | null;
+  rejection_reason?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+};
+
+export type ShipmentRow = {
+  id: string;
+  order_id: string;
+  recipient_name?: string | null;
+  phone?: string | null;
+  address?: string | null;
+  district?: string | null;
+  city?: string | null;
+  province?: string | null;
+  postal_code?: string | null;
+  shipping_status?: string | null;
+  shipping_cost?: number | null;
+  expedition_name?: string | null;
+  courier_name?: string | null;
+  courier_code?: string | null;
+  service_name?: string | null;
+  booking_status?: string | null;
+  tracking_number?: string | null;
+  tracking_url?: string | null;
+  label_url?: string | null;
+  provider_order_id?: string | null;
+  provider_tracking_id?: string | null;
+  biteship_error?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+};
+
+export type OrderItemRow = {
+  id: string;
+  order_id: string;
+  product_id?: string | null;
+  variant_id?: string | null;
+  product_name?: string | null;
+  sku_product?: string | null;
+  sku_variant?: string | null;
+  color_name?: string | null;
+  size_name?: string | null;
+  pattern_type?: string | null;
+  qty?: number | null;
+  unit_price?: number | null;
+  subtotal?: number | null;
+  weight_gram?: number | null;
+  image_url?: string | null;
+  created_at?: string | null;
+};
+
 export type OrderMessage = {
   id: string;
   order_id: string;
@@ -190,6 +260,7 @@ export type OrderRow = {
   id: string;
   order_number: string | null;
   order_no?: string | null;
+  display_order_no?: string | null;
   buyer_id: string | null;
   customer_name: string | null;
   customer_email: string | null;
