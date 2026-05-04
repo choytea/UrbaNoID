@@ -48,6 +48,16 @@ function isImageProof(url?: string | null) {
   return !!url && /\.(png|jpe?g|webp|gif)(\?|$)/i.test(url);
 }
 
+function escapeHtml(value: string) {
+  return String(value || "").replace(/[&<>"']/g, char => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    "\"": "&quot;",
+    "'": "&#39;",
+  }[char] || char));
+}
+
 async function resolvePaymentProofUrls(rows: PaymentRow[]): Promise<PaymentRow[]> {
   return Promise.all(rows.map(async row => {
     if (!row.proof_storage_path) return row;
@@ -88,6 +98,7 @@ export function BuyerProfilePage({ session, profile, onProfileUpdated }: Props) 
   const [message, setMessage] = useState("");
   const [paymentFile, setPaymentFile] = useState<File | null>(null);
   const [selectedPaymentId, setSelectedPaymentId] = useState("");
+  const [selectedProof, setSelectedProof] = useState<{ url: string; title: string; isImage: boolean } | null>(null);
   const [submittingPayment, setSubmittingPayment] = useState(false);
   const [paymentForm, setPaymentForm] = useState({
     payer_name: profile?.full_name || "",
@@ -193,6 +204,57 @@ export function BuyerProfilePage({ session, profile, onProfileUpdated }: Props) 
     setShipments((shipmentRows || []) as ShipmentRow[]);
     setMessages((messageRows || []) as OrderMessage[]);
     if (resolvedPaymentRows[0]) setSelectedPaymentId(resolvedPaymentRows[0].id);
+  }
+
+  function printPaymentProof(proof = selectedProof) {
+    if (!proof) return;
+
+    const title = escapeHtml(proof.title || "Bukti Pembayaran");
+    const url = escapeHtml(proof.url);
+    const media = proof.isImage
+      ? `<img src="${url}" alt="${title}" onload="setTimeout(function(){ window.focus(); window.print(); }, 350)" />`
+      : `<iframe src="${url}" title="${title}" onload="setTimeout(function(){ window.focus(); window.print(); }, 650)"></iframe>`;
+
+    const html = `
+      <html>
+        <head>
+          <title>${title}</title>
+          <style>
+            * { box-sizing: border-box; }
+            body { margin: 0; padding: 24px; font-family: Arial, sans-serif; color: #0f172a; background: #f8fafc; }
+            .proof-print-sheet { width: 100%; max-width: 920px; margin: 0 auto; padding: 18px; background: white; border: 1px solid #cbd5e1; border-radius: 18px; }
+            h1 { margin: 0 0 12px; font-size: 22px; line-height: 1.2; }
+            p { margin: 0 0 14px; font-size: 13px; color: #475569; }
+            img { display: block; width: 100%; max-height: 78vh; object-fit: contain; border: 1px solid #dbeafe; border-radius: 14px; background: #fff; }
+            iframe { width: 100%; height: 78vh; border: 1px solid #dbeafe; border-radius: 14px; background: #fff; }
+            .actions { display: flex; gap: 10px; margin-top: 14px; }
+            button, a { appearance: none; border: 1px solid #cbd5e1; border-radius: 12px; padding: 10px 14px; font-weight: 800; color: #0f172a; background: white; text-decoration: none; cursor: pointer; }
+            button.primary { background: #16a34a; color: white; border-color: #16a34a; }
+            @media print { body { padding: 0; background: white; } .proof-print-sheet { border: 0; border-radius: 0; padding: 0; max-width: none; } h1, p, .actions { display: none; } img { max-height: none; border: 0; border-radius: 0; } iframe { height: 96vh; border: 0; border-radius: 0; } }
+          </style>
+        </head>
+        <body>
+          <div class="proof-print-sheet">
+            <h1>${title}</h1>
+            <p>Gunakan tombol Cetak bila dialog print belum otomatis muncul.</p>
+            ${media}
+            <div class="actions">
+              <button class="primary" onclick="window.print()">Cetak Bukti</button>
+              <a href="${url}" target="_blank" rel="noreferrer">Buka File Asli</a>
+              <button onclick="window.close()">Tutup</button>
+            </div>
+          </div>
+        </body>
+      </html>
+    `;
+
+    const win = window.open("", "_blank", "width=980,height=860");
+    if (!win) {
+      alert("Popup browser diblokir. Izinkan popup untuk mencetak bukti pembayaran.");
+      return;
+    }
+    win.document.write(html);
+    win.document.close();
   }
 
   async function loadStore() {
@@ -538,7 +600,17 @@ export function BuyerProfilePage({ session, profile, onProfileUpdated }: Props) 
                     {selectedPayment?.proof_url && (
                       <div className="payment-proof-preview">
                         {isImageProof(selectedPayment.proof_url) ? <img src={selectedPayment.proof_url} alt="Bukti pembayaran" /> : null}
-                        <a href={selectedPayment.proof_url} target="_blank" rel="noreferrer">Lihat bukti pembayaran</a>
+                        <button
+                          type="button"
+                          className="proof-preview-link"
+                          onClick={() => setSelectedProof({
+                            url: selectedPayment.proof_url!,
+                            title: `Bukti Pembayaran ${displayOrderNo(selectedOrder)}`,
+                            isImage: isImageProof(selectedPayment.proof_url),
+                          })}
+                        >
+                          Lihat Bukti Pembayaran
+                        </button>
                         <small>Dikirim: {formatDate(selectedPayment.proof_uploaded_at)}</small>
                       </div>
                     )}
@@ -608,6 +680,32 @@ export function BuyerProfilePage({ session, profile, onProfileUpdated }: Props) 
           <button className={followed ? "btn-secondary" : "btn-primary"} onClick={toggleFollow}>
             {followed ? "Berhenti Ikuti Toko" : "Ikuti Toko"}
           </button>
+        </div>
+      )}
+
+      {selectedProof && (
+        <div className="modal-backdrop proof-viewer-overlay" onMouseDown={() => setSelectedProof(null)}>
+          <div className="proof-viewer-modal" onMouseDown={event => event.stopPropagation()}>
+            <div className="proof-viewer-head">
+              <div>
+                <h2>{selectedProof.title}</h2>
+                <p>Preview bukti pembayaran Anda.</p>
+              </div>
+              <button type="button" className="modal-close-btn" onClick={() => setSelectedProof(null)}>×</button>
+            </div>
+            <div className="proof-viewer-body">
+              {selectedProof.isImage ? (
+                <img src={selectedProof.url} alt={selectedProof.title} />
+              ) : (
+                <iframe src={selectedProof.url} title={selectedProof.title} />
+              )}
+            </div>
+            <div className="proof-viewer-actions">
+              <button type="button" className="btn-primary" onClick={() => printPaymentProof(selectedProof)}>Cetak Bukti</button>
+              <a className="btn-secondary-link" href={selectedProof.url} target="_blank" rel="noreferrer">Buka Tab Baru</a>
+              <button type="button" onClick={() => setSelectedProof(null)}>Tutup</button>
+            </div>
+          </div>
         </div>
       )}
     </section>

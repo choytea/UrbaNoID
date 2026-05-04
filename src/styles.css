@@ -5742,9 +5742,20 @@ button.danger {
 }
 
 .payment-proof-preview a,
+.payment-proof-preview .proof-preview-link,
 .seller-payment-proof a {
   font-weight: 950;
   color: #2563eb;
+}
+
+.payment-proof-preview .proof-preview-link {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  text-decoration: underline;
+  text-align: left;
+  cursor: pointer;
 }
 
 .payment-confirm-grid input[type="file"] {
@@ -6319,7 +6330,8 @@ button.danger {
   flex: 0 0 74px;
 }
 
-.phase-3b-7-buyer-orders .payment-proof-preview a {
+.phase-3b-7-buyer-orders .payment-proof-preview a,
+.phase-3b-7-buyer-orders .payment-proof-preview .proof-preview-link {
   font-size: 14px;
   line-height: 1.25;
 }
@@ -6621,4 +6633,17 @@ button.danger {
     width: min(96vw, 980px);
     max-height: calc(100vh - 20px);
   }
+}
+
+
+/* ============================================================
+   Phase 3B.7L: Buyer Payment Proof Popup Actions
+   ============================================================ */
+.phase-3b-7-buyer-orders .payment-proof-preview .proof-preview-link {
+  min-height: 0;
+  border-radius: 0;
+}
+
+.phase-3b-7-buyer-orders .payment-proof-preview .proof-preview-link:hover {
+  text-decoration-thickness: 2px;
 }
