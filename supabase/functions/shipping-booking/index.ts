@@ -1,5 +1,20 @@
+// ============================================================
+// UrbaNoiD Supabase Native
+// Phase 3B.7T - Biteship Testing Booking Integration
+// Supabase Edge Function: shipping-booking
+// ============================================================
+// Frontend calls:
+//   supabase.functions.invoke("shipping-booking", { body: { shipment_id } })
+//
+// Required secret:
+//   BITESHIP_API_KEY="biteship_test_..."
+// Optional secrets:
+//   BITESHIP_API_BASE_URL="https://api.biteship.com"
+//   BITESHIP_TESTING_MODE="true"
+// ============================================================
+
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "npm:@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -10,88 +25,310 @@ const corsHeaders = {
 type JsonRecord = Record<string, any>;
 
 function jsonResponse(body: JsonRecord, status = 200) {
-  return new Response(JSON.stringify(body), {
+  return new Response(JSON.stringify(body, null, 2), {
     status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
+    headers: {
+      ...corsHeaders,
+      "Content-Type": "application/json; charset=utf-8",
+    },
   });
 }
 
-function normalizeCourier(value: unknown, fallback = "jne") {
-  const raw = String(value || fallback).trim().toLowerCase();
-  if (!raw) return fallback;
-  if (raw.includes("j&t")) return "jnt";
-  return raw
-    .replace(/express/g, "")
-    .replace(/[^a-z0-9]/g, "")
-    .trim() || fallback;
+function asString(value: any, fallback = "") {
+  if (value === null || value === undefined) return fallback;
+  return String(value).trim();
 }
 
-function normalizeService(value: unknown, fallback = "reg") {
-  const raw = String(value || fallback).trim().toLowerCase();
-  return raw.replace(/[^a-z0-9_]/g, "") || fallback;
+function nullableString(value: any) {
+  const text = asString(value);
+  return text ? text : null;
 }
 
-function numericPostal(value: unknown, label: string) {
-  const raw = String(value || "").replace(/\D/g, "");
-  if (!raw) throw new Error(`${label} wajib diisi untuk booking Biteship.`);
-  return Number(raw);
+function toNumber(value: any, fallback = 0) {
+  if (value === null || value === undefined || value === "") return fallback;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : fallback;
 }
 
-function positiveNumber(value: unknown, fallback: number) {
-  const num = Number(value);
-  return Number.isFinite(num) && num > 0 ? num : fallback;
+function toPositiveNumber(value: any, fallback = 0) {
+  const n = toNumber(value, fallback);
+  return n > 0 ? n : fallback;
 }
 
-async function assertSeller(serviceClient: any, authHeader: string) {
-  const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
-  const anonKey = Deno.env.get("SUPABASE_ANON_KEY") || "";
+function parsePostalCode(value: any): number | undefined {
+  const digits = asString(value).replace(/\D/g, "");
+  if (!digits) return undefined;
+  const n = Number(digits);
+  return Number.isFinite(n) ? n : undefined;
+}
 
-  const userClient = createClient(supabaseUrl, anonKey, {
-    global: { headers: { Authorization: authHeader } },
-  });
+function cleanPhone(value: any) {
+  const raw = asString(value);
+  if (!raw) return "";
+  const plus = raw.startsWith("+") ? "+" : "";
+  return plus + raw.replace(/[^0-9]/g, "");
+}
 
-  const { data: userData, error: userError } = await userClient.auth.getUser();
-  if (userError || !userData?.user?.id) throw new Error("Login seller/admin diperlukan.");
+function normalizeCourier(value: any) {
+  return asString(value)
+    .toLowerCase()
+    .replace(/[^a-z0-9_\-]/g, "")
+    .trim();
+}
 
-  const { data: profile, error: profileError } = await serviceClient
-    .from("profiles")
-    .select("id, role, is_active")
-    .eq("id", userData.user.id)
-    .maybeSingle();
+function normalizeService(value: any) {
+  return asString(value)
+    .toLowerCase()
+    .replace(/[^a-z0-9_\-]/g, "")
+    .trim();
+}
 
-  if (profileError) throw new Error(profileError.message);
+function normalizeCollectionMethod(value: any) {
+  const text = asString(value).toLowerCase();
+  if (text.includes("drop")) return "drop_off";
+  return "pickup";
+}
 
-  const role = String(profile?.role || "").toUpperCase();
-  if (!profile?.is_active || !["ADMIN", "SUPERADMIN", "SELLER"].includes(role)) {
-    throw new Error("Akses seller/admin diperlukan untuk booking Biteship.");
+function makeReferenceId(order: JsonRecord) {
+  const raw = asString(order.order_number || order.order_no || order.display_order_no || order.id);
+  return `urbanoid-${raw}`.replace(/[^a-zA-Z0-9_\-]/g, "-").slice(0, 80);
+}
+
+function getServiceRoleKey() {
+  const legacy = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  if (legacy) return legacy;
+
+  const secretKeys = Deno.env.get("SUPABASE_SECRET_KEYS");
+  if (secretKeys) {
+    try {
+      const parsed = JSON.parse(secretKeys);
+      if (parsed?.service_role) return parsed.service_role;
+      if (parsed?.serviceRole) return parsed.serviceRole;
+      if (parsed?.secret) return parsed.secret;
+      const values = Object.values(parsed).filter(Boolean);
+      if (values.length) return String(values[0]);
+    } catch (_) {
+      // ignore malformed env and fall through
+    }
   }
 
-  return userData.user;
+  throw new Error("SUPABASE_SERVICE_ROLE_KEY/SUPABASE_SECRET_KEYS belum tersedia di Edge Function.");
+}
+
+function getBiteshipApiKey() {
+  return (
+    Deno.env.get("BITESHIP_API_KEY") ||
+    Deno.env.get("BITESHIP_TEST_API_KEY") ||
+    Deno.env.get("BITESHIP_TOKEN") ||
+    ""
+  ).trim();
+}
+
+function getBearerToken(req: Request) {
+  const authHeader = req.headers.get("Authorization") || req.headers.get("authorization") || "";
+  return authHeader.replace(/^Bearer\s+/i, "").trim();
+}
+
+function buildItems(items: JsonRecord[], order: JsonRecord) {
+  const rows = Array.isArray(items) ? items : [];
+
+  const mapped = rows.map((item, index) => {
+    const qty = Math.max(1, Math.floor(toPositiveNumber(item.qty || item.quantity, 1)));
+    const value = Math.max(1, Math.round(toPositiveNumber(item.unit_price || item.price || item.subtotal, 1)));
+    const weight = Math.max(1, Math.round(toPositiveNumber(item.weight_gram || item.weight || item.package_weight_gram, 250)));
+
+    const result: JsonRecord = {
+      name: asString(item.product_name || item.name || `Produk ${index + 1}`),
+      description: [item.color_name, item.size_name, item.pattern_type].filter(Boolean).join(" / ") || undefined,
+      sku: nullableString(item.sku_variant || item.sku_product || item.sku),
+      category: "fashion",
+      value,
+      quantity: qty,
+      weight,
+    };
+
+    const length = toNumber(item.package_length_cm || item.length_cm || item.length, 0);
+    const width = toNumber(item.package_width_cm || item.width_cm || item.width, 0);
+    const height = toNumber(item.package_height_cm || item.height_cm || item.height, 0);
+    if (length > 0) result.length = length;
+    if (width > 0) result.width = width;
+    if (height > 0) result.height = height;
+
+    return result;
+  });
+
+  if (mapped.length) return mapped;
+
+  return [{
+    name: `Pesanan ${asString(order.order_number || order.order_no || order.id)}`,
+    category: "fashion",
+    value: Math.max(1, Math.round(toPositiveNumber(order.grand_total || order.total_amount || order.subtotal_amount, 1))),
+    quantity: 1,
+    weight: 500,
+  }];
+}
+
+function extractBiteshipError(payload: JsonRecord, fallback: string) {
+  return (
+    asString(payload?.error) ||
+    asString(payload?.message) ||
+    asString(payload?.detail) ||
+    fallback
+  );
+}
+
+function buildBiteshipPayload(store: JsonRecord, order: JsonRecord, shipment: JsonRecord, items: JsonRecord[]) {
+  const courierCompany = normalizeCourier(shipment.courier_code || shipment.courier_name || shipment.expedition_name);
+  const courierType = normalizeService(shipment.provider_service_code || shipment.service_name || shipment.courier_type);
+
+  const originContactName = asString(store.origin_contact_name || store.store_name);
+  const originPhone = cleanPhone(store.whatsapp || store.phone || store.telepon);
+  const originAddress = asString(store.address_line || store.address || store.alamat_toko);
+  const originPostalCode = parsePostalCode(store.postal_code || store.kode_pos);
+
+  const destinationName = asString(shipment.recipient_name || order.customer_name);
+  const destinationPhone = cleanPhone(shipment.phone || order.customer_phone);
+  const destinationAddress = asString(shipment.address || order.shipping_address);
+  const destinationPostalCode = parsePostalCode(shipment.postal_code || order.shipping_postal_code);
+
+  const validationErrors: string[] = [];
+  if (!courierCompany) validationErrors.push("Kurir pengiriman belum tersedia. Isi courier_code/courier_name pada data shipment/ekspedisi.");
+  if (!courierType) validationErrors.push("Service pengiriman belum tersedia. Isi service_name, contoh REG.");
+  if (!originContactName) validationErrors.push("Nama kontak pickup toko belum tersedia.");
+  if (!originPhone) validationErrors.push("Nomor HP/WhatsApp toko belum tersedia.");
+  if (!originAddress) validationErrors.push("Alamat pickup toko belum tersedia.");
+  if (!originPostalCode && !store.origin_area_id && !store.origin_location_id && !(store.origin_latitude && store.origin_longitude)) {
+    validationErrors.push("Origin toko perlu postal code, area_id, location_id, atau koordinat.");
+  }
+  if (!destinationName) validationErrors.push("Nama penerima/buyer belum tersedia.");
+  if (!destinationPhone) validationErrors.push("Nomor HP buyer belum tersedia.");
+  if (!destinationAddress) validationErrors.push("Alamat buyer belum tersedia.");
+  if (!destinationPostalCode && !shipment.destination_area_id && !shipment.destination_location_id) {
+    validationErrors.push("Alamat buyer perlu kode pos atau area/location id tujuan.");
+  }
+
+  if (validationErrors.length) {
+    throw new Error(validationErrors.join(" "));
+  }
+
+  const payload: JsonRecord = {
+    shipper_contact_name: originContactName,
+    shipper_contact_phone: originPhone,
+    shipper_contact_email: nullableString(store.email),
+    shipper_organization: nullableString(store.store_name),
+
+    origin_contact_name: originContactName,
+    origin_contact_phone: originPhone,
+    origin_contact_email: nullableString(store.email),
+    origin_address: originAddress,
+    origin_note: nullableString(store.origin_note),
+    origin_collection_method: normalizeCollectionMethod(store.origin_collection_method),
+
+    destination_contact_name: destinationName,
+    destination_contact_phone: destinationPhone,
+    destination_contact_email: nullableString(order.customer_email),
+    destination_address: destinationAddress,
+    destination_note: nullableString(order.notes),
+
+    courier_company: courierCompany,
+    courier_type: courierType,
+    delivery_type: "now",
+    order_note: nullableString(order.notes || store.origin_note),
+    reference_id: makeReferenceId(order),
+    tags: ["urbanoid", "testing"],
+    metadata: {
+      app: "UrbaNoiD Supabase Native",
+      phase: "3B.7T",
+      order_id: order.id,
+      shipment_id: shipment.id,
+      testing: true,
+    },
+    items: buildItems(items, order),
+  };
+
+  if (originPostalCode) payload.origin_postal_code = originPostalCode;
+  if (destinationPostalCode) payload.destination_postal_code = destinationPostalCode;
+  if (store.origin_area_id) payload.origin_area_id = store.origin_area_id;
+  if (store.origin_location_id) payload.origin_location_id = store.origin_location_id;
+
+  const originLat = toNumber(store.origin_latitude, NaN);
+  const originLng = toNumber(store.origin_longitude, NaN);
+  if (Number.isFinite(originLat) && Number.isFinite(originLng)) {
+    payload.origin_coordinate = { latitude: originLat, longitude: originLng };
+  }
+
+  if (shipment.destination_area_id) payload.destination_area_id = shipment.destination_area_id;
+  if (shipment.destination_location_id) payload.destination_location_id = shipment.destination_location_id;
+
+  return payload;
+}
+
+async function updateShipmentFailure(serviceClient: any, shipmentId: string, message: string, details?: JsonRecord) {
+  await serviceClient
+    .from("shipments")
+    .update({
+      booking_status: "BITESHIP_FAILED",
+      biteship_error: message,
+      provider_response_json: details || null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", shipmentId);
 }
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+  if (req.method !== "POST") return jsonResponse({ success: false, error: "Method tidak didukung." }, 405);
+
+  let body: JsonRecord = {};
+  try {
+    body = await req.json();
+  } catch (_) {
+    body = {};
+  }
+
+  const shipmentId = asString(body.shipment_id || body.shipmentId);
+  const force = Boolean(body.force);
+
+  if (!shipmentId) {
+    return jsonResponse({ success: false, error: "shipment_id wajib dikirim." }, 400);
+  }
 
   try {
-    if (req.method !== "POST") return jsonResponse({ error: "Method not allowed" }, 405);
+    const supabaseUrl = Deno.env.get("SUPABASE_URL");
+    if (!supabaseUrl) throw new Error("SUPABASE_URL belum tersedia di Edge Function.");
 
-    const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
-    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
-    const biteshipKey = Deno.env.get("BITESHIP_API_KEY") || "";
-    const biteshipBaseUrl = Deno.env.get("BITESHIP_BASE_URL") || "https://api.biteship.com";
+    const serviceKey = getServiceRoleKey();
+    const biteshipApiKey = getBiteshipApiKey();
+    if (!biteshipApiKey) {
+      throw new Error("Secret BITESHIP_API_KEY belum diset. Gunakan API Key Testing Biteship pada Supabase secrets.");
+    }
 
-    if (!supabaseUrl || !serviceKey) throw new Error("SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY belum tersedia.");
-    if (!biteshipKey) throw new Error("BITESHIP_API_KEY belum diset di Supabase Secrets.");
+    const serviceClient = createClient(supabaseUrl, serviceKey, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
 
-    const authHeader = req.headers.get("Authorization") || "";
-    const body = await req.json().catch(() => ({}));
-    const shipmentId = String(body.shipment_id || "").trim();
-    const force = Boolean(body.force);
+    const token = getBearerToken(req);
+    if (!token) return jsonResponse({ success: false, error: "Login seller/admin diperlukan." }, 401);
 
-    if (!shipmentId) throw new Error("shipment_id wajib dikirim.");
+    const { data: userData, error: userError } = await serviceClient.auth.getUser(token);
+    if (userError || !userData?.user) {
+      return jsonResponse({ success: false, error: "Token login tidak valid." }, 401);
+    }
 
-    const serviceClient = createClient(supabaseUrl, serviceKey);
-    await assertSeller(serviceClient, authHeader);
+    const userId = userData.user.id;
+
+    const { data: profile, error: profileError } = await serviceClient
+      .from("profiles")
+      .select("id, role, is_active")
+      .eq("id", userId)
+      .maybeSingle();
+
+    if (profileError) throw profileError;
+
+    const role = asString(profile?.role).toUpperCase();
+    if (!profile?.is_active || !["ADMIN", "SUPERADMIN", "SELLER"].includes(role)) {
+      return jsonResponse({ success: false, error: "Akses seller/admin diperlukan untuk Booking Biteship." }, 403);
+    }
 
     const { data: shipment, error: shipmentError } = await serviceClient
       .from("shipments")
@@ -99,13 +336,15 @@ serve(async (req) => {
       .eq("id", shipmentId)
       .single();
 
-    if (shipmentError || !shipment) throw new Error(shipmentError?.message || "Shipment tidak ditemukan.");
+    if (shipmentError || !shipment) {
+      return jsonResponse({ success: false, error: "Data shipment tidak ditemukan." }, 404);
+    }
 
     if (shipment.provider_order_id && !force) {
       return jsonResponse({
-        ok: true,
-        reused: true,
-        message: "Shipment sudah pernah dibooking.",
+        success: true,
+        already_booked: true,
+        message: "Shipment ini sudah memiliki Biteship Order ID.",
         shipment,
       });
     }
@@ -116,192 +355,127 @@ serve(async (req) => {
       .eq("id", shipment.order_id)
       .single();
 
-    if (orderError || !order) throw new Error(orderError?.message || "Order tidak ditemukan.");
-
-    const { data: orderItems, error: itemError } = await serviceClient
-      .from("order_items")
-      .select("*")
-      .eq("order_id", order.id);
-
-    if (itemError) throw new Error(itemError.message);
-    if (!orderItems?.length) throw new Error("Order belum memiliki item.");
-
-    const { data: store, error: storeError } = await serviceClient
-      .from("store_profiles")
-      .select("*")
-      .eq("is_active", true)
-      .order("created_at", { ascending: true })
-      .limit(1)
-      .maybeSingle();
-
-    if (storeError) throw new Error(storeError.message);
-    if (!store) throw new Error("Profil Toko belum tersedia/aktif.");
-
-    const { data: expedition } = shipment.shipping_expedition_id
-      ? await serviceClient.from("shipping_expeditions").select("*").eq("id", shipment.shipping_expedition_id).maybeSingle()
-      : { data: null };
-
-    const originPhone = store.phone || store.whatsapp;
-    const originAddress = store.address_line;
-    if (!originPhone) throw new Error("Nomor HP/WhatsApp toko wajib diisi di Profil Toko.");
-    if (!originAddress) throw new Error("Alamat toko wajib diisi di Profil Toko.");
-    if (!store.postal_code) throw new Error("Kode pos toko wajib diisi di Profil Toko.");
-
-    const destinationPhone = shipment.phone || order.customer_phone;
-    const destinationAddress = shipment.address || order.shipping_address;
-    if (!destinationPhone) throw new Error("Nomor HP buyer/penerima belum tersedia.");
-    if (!destinationAddress) throw new Error("Alamat buyer/penerima belum tersedia.");
-    if (!shipment.postal_code && !order.shipping_postal_code) throw new Error("Kode pos buyer/penerima belum tersedia.");
-
-    const courierCompany = normalizeCourier(shipment.courier_code || expedition?.courier_code || shipment.expedition_name || expedition?.name);
-    const courierType = normalizeService(
-      shipment.service_name || expedition?.provider_service_code || expedition?.service_name || Deno.env.get("BITESHIP_DEFAULT_COURIER_TYPE") || "reg"
-    );
-
-    const defaultLength = positiveNumber(Deno.env.get("BITESHIP_DEFAULT_LENGTH_CM"), 40);
-    const defaultWidth = positiveNumber(Deno.env.get("BITESHIP_DEFAULT_WIDTH_CM"), 35);
-    const defaultHeight = positiveNumber(Deno.env.get("BITESHIP_DEFAULT_HEIGHT_CM"), 2);
-
-    const items = orderItems.map((item: JsonRecord) => ({
-      name: item.product_name || item.sku_variant || "UrbaNoiD Product",
-      description: [item.color_name, item.size_name, item.pattern_type].filter(Boolean).join(" / ") || "Fashion apparel",
-      category: "fashion",
-      sku: item.sku_variant || item.sku_product || undefined,
-      value: positiveNumber(item.unit_price, 1),
-      quantity: Math.max(1, Number(item.qty || 1)),
-      weight: Math.max(1, Number(item.weight_gram || 250)),
-      height: positiveNumber(item.package_height_cm, defaultHeight),
-      length: positiveNumber(item.package_length_cm, defaultLength),
-      width: positiveNumber(item.package_width_cm, defaultWidth),
-    }));
-
-    const collectionMethod =
-      shipment.origin_collection_method ||
-      expedition?.origin_collection_method ||
-      store.origin_collection_method ||
-      Deno.env.get("BITESHIP_COLLECTION_METHOD") ||
-      "pickup";
-
-    const payload: JsonRecord = {
-      shipper_contact_name: store.origin_contact_name || store.store_name || "UrbaNoiD",
-      shipper_contact_phone: originPhone,
-      shipper_contact_email: store.email || undefined,
-      shipper_organization: store.store_name || "UrbaNoiD",
-      origin_contact_name: store.origin_contact_name || store.store_name || "UrbaNoiD",
-      origin_contact_phone: originPhone,
-      origin_contact_email: store.email || undefined,
-      origin_address: originAddress,
-      origin_note: store.origin_note || undefined,
-      origin_postal_code: numericPostal(store.postal_code, "Kode pos toko"),
-      origin_area_id: store.origin_area_id || undefined,
-      origin_location_id: store.origin_location_id || undefined,
-      origin_coordinate: (store.origin_latitude && store.origin_longitude)
-        ? { latitude: Number(store.origin_latitude), longitude: Number(store.origin_longitude) }
-        : undefined,
-      origin_collection_method: collectionMethod,
-      destination_contact_name: shipment.recipient_name || order.customer_name || "Customer",
-      destination_contact_phone: destinationPhone,
-      destination_contact_email: order.customer_email || undefined,
-      destination_address: destinationAddress,
-      destination_note: order.notes || undefined,
-      destination_postal_code: numericPostal(shipment.postal_code || order.shipping_postal_code, "Kode pos buyer"),
-      destination_area_id: shipment.destination_area_id || order.destination_area_id || undefined,
-      destination_coordinate: (shipment.destination_latitude && shipment.destination_longitude)
-        ? { latitude: Number(shipment.destination_latitude), longitude: Number(shipment.destination_longitude) }
-        : undefined,
-      courier_company: courierCompany,
-      courier_type: courierType,
-      delivery_type: Deno.env.get("BITESHIP_DELIVERY_TYPE") || "now",
-      order_note: order.notes || `UrbaNoiD ${order.order_number || order.order_no || order.id}`,
-      reference_id: order.order_number || order.order_no || order.id,
-      metadata: {
-        order_id: order.id,
-        order_number: order.order_number || order.order_no,
-        shipment_id: shipment.id,
-        source: "urbanoid_supabase_native",
-      },
-      items,
-    };
-
-    Object.keys(payload).forEach((key) => {
-      if (payload[key] === undefined || payload[key] === null || payload[key] === "") delete payload[key];
-    });
-
-    const endpoint = `${biteshipBaseUrl.replace(/\/$/, "")}/v1/orders`;
-
-    await serviceClient.from("shipments").update({
-      provider_name: "Biteship",
-      booking_status: "BITESHIP_REQUESTING",
-      biteship_request: payload,
-      biteship_error: null,
-    }).eq("id", shipment.id);
-
-    const response = await fetch(endpoint, {
-      method: "POST",
-      headers: {
-        "Authorization": biteshipKey,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(payload),
-    });
-
-    const providerJson = await response.json().catch(() => ({}));
-
-    if (!response.ok || providerJson?.success === false) {
-      const message = providerJson?.error || providerJson?.message || `Biteship error HTTP ${response.status}`;
-      await serviceClient.from("shipments").update({
-        provider_name: "Biteship",
-        booking_status: "BITESHIP_FAILED",
-        biteship_response: providerJson,
-        biteship_error: message,
-      }).eq("id", shipment.id);
-
-      return jsonResponse({ ok: false, error: message, provider: providerJson, payload }, 400);
+    if (orderError || !order) {
+      await updateShipmentFailure(serviceClient, shipmentId, "Order terkait shipment tidak ditemukan.");
+      return jsonResponse({ success: false, error: "Order terkait shipment tidak ditemukan." }, 404);
     }
 
-    const providerOrderId = providerJson.id || providerJson.order_id || null;
-    const providerTrackingId = providerJson.courier?.tracking_id || providerJson.tracking_id || null;
-    const waybillId = providerJson.courier?.waybill_id || providerJson.waybill_id || providerJson.waybill || null;
-    const trackingUrl = providerJson.courier?.link || providerJson.tracking_url || null;
-    const labelUrl = providerJson.label_url || providerJson.shipping_label_url || providerJson.courier?.label_url || null;
-    const providerStatus = providerJson.status || "confirmed";
+    const [{ data: itemRows, error: itemsError }, { data: storeRows, error: storeError }] = await Promise.all([
+      serviceClient.from("order_items").select("*").eq("order_id", order.id),
+      serviceClient.from("store_profiles").select("*").eq("is_active", true).limit(1),
+    ]);
+
+    if (itemsError) throw itemsError;
+    if (storeError) throw storeError;
+
+    const store = Array.isArray(storeRows) && storeRows.length ? storeRows[0] : null;
+    if (!store) {
+      await updateShipmentFailure(serviceClient, shipmentId, "Profil toko aktif belum tersedia.");
+      return jsonResponse({ success: false, error: "Profil toko aktif belum tersedia." }, 400);
+    }
+
+    let biteshipPayload: JsonRecord;
+    try {
+      biteshipPayload = buildBiteshipPayload(store, order, shipment, itemRows || []);
+    } catch (validationError) {
+      const message = validationError instanceof Error ? validationError.message : String(validationError);
+      await updateShipmentFailure(serviceClient, shipmentId, message);
+      return jsonResponse({ success: false, error: message }, 400);
+    }
+
+    const apiBaseUrl = Deno.env.get("BITESHIP_API_BASE_URL") || "https://api.biteship.com";
+    const response = await fetch(`${apiBaseUrl.replace(/\/$/, "")}/v1/orders`, {
+      method: "POST",
+      headers: {
+        "Authorization": biteshipApiKey,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(biteshipPayload),
+    });
+
+    let biteshipResult: JsonRecord = {};
+    try {
+      biteshipResult = await response.json();
+    } catch (_) {
+      biteshipResult = { message: await response.text() };
+    }
+
+    if (!response.ok || biteshipResult.success === false) {
+      const message = extractBiteshipError(biteshipResult, `Biteship API gagal dengan HTTP ${response.status}.`);
+      await updateShipmentFailure(serviceClient, shipmentId, message, biteshipResult);
+      return jsonResponse({ success: false, error: message, biteship: biteshipResult }, response.ok ? 400 : response.status);
+    }
+
+    const courier = biteshipResult.courier || {};
+    const providerOrderId = nullableString(biteshipResult.id || biteshipResult.order_id || biteshipResult.object_id);
+    const trackingId = nullableString(courier.tracking_id || biteshipResult.tracking_id);
+    const waybillId = nullableString(courier.waybill_id || courier.waybill_number || biteshipResult.waybill_id);
+    const trackingUrl = nullableString(courier.link || courier.tracking_url || biteshipResult.tracking_url);
+    const labelUrl = nullableString(courier.label_url || biteshipResult.label_url || biteshipResult.shipping_label_url);
 
     const { error: updateError } = await serviceClient
       .from("shipments")
       .update({
-        provider_name: "Biteship",
+        provider_name: "biteship",
         provider_order_id: providerOrderId,
-        provider_tracking_id: providerTrackingId,
+        provider_tracking_id: trackingId,
         tracking_number: waybillId,
         tracking_url: trackingUrl,
         label_url: labelUrl,
-        booking_status: `BITESHIP_${String(providerStatus).toUpperCase()}`,
-        booked_at: new Date().toISOString(),
-        biteship_response: providerJson,
+        booking_status: "BITESHIP_BOOKED",
         biteship_error: null,
-        shipping_status: waybillId ? "DIKEMAS" : "BELUM_DIKIRIM",
+        provider_response_json: biteshipResult,
+        booking_created_at: new Date().toISOString(),
+        shipping_status: shipment.shipping_status || "DIKEMAS",
+        updated_at: new Date().toISOString(),
       })
-      .eq("id", shipment.id);
+      .eq("id", shipmentId);
 
-    if (updateError) throw new Error(updateError.message);
+    if (updateError) throw updateError;
 
-    await serviceClient.from("orders").update({
-      shipping_status: waybillId ? "DIKEMAS" : "BELUM_DIKIRIM",
-      updated_at: new Date().toISOString(),
-    }).eq("id", order.id);
+    await serviceClient
+      .from("orders")
+      .update({
+        shipping_status: order.shipping_status || "DIKEMAS",
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", order.id);
+
+    await serviceClient
+      .from("order_messages")
+      .insert({
+        order_id: order.id,
+        sender_id: userId,
+        sender_role: "SELLER",
+        message: `Booking Biteship testing berhasil. Order ID: ${providerOrderId || "-"}. Resi: ${waybillId || "belum tersedia"}.`,
+        created_at: new Date().toISOString(),
+      });
 
     return jsonResponse({
-      ok: true,
-      message: "Booking Biteship berhasil.",
+      success: true,
+      message: "Booking Biteship testing berhasil.",
+      shipment_id: shipmentId,
+      order_id: order.id,
       provider_order_id: providerOrderId,
-      provider_tracking_id: providerTrackingId,
+      provider_tracking_id: trackingId,
       tracking_number: waybillId,
       tracking_url: trackingUrl,
       label_url: labelUrl,
-      provider_status: providerStatus,
-      provider: providerJson,
+      biteship_status: biteshipResult.status || null,
+      biteship: biteshipResult,
     });
   } catch (error) {
-    return jsonResponse({ ok: false, error: error instanceof Error ? error.message : "Unknown error" }, 400);
+    const message = error instanceof Error ? error.message : String(error);
+    try {
+      const supabaseUrl = Deno.env.get("SUPABASE_URL");
+      const serviceKey = supabaseUrl ? getServiceRoleKey() : "";
+      if (supabaseUrl && serviceKey && shipmentId) {
+        const serviceClient = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } });
+        await updateShipmentFailure(serviceClient, shipmentId, message);
+      }
+    } catch (_) {
+      // ignore secondary failure
+    }
+    return jsonResponse({ success: false, error: message }, 500);
   }
 });
