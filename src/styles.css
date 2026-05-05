@@ -6696,3 +6696,99 @@ button.danger {
   pointer-events: auto;
   opacity: 1;
 }
+
+/* ============================================================
+   Phase 3B.7V - Shipping Cost Display & Final Order Status Polish
+   ============================================================ */
+.phase3b7v-cost-compare,
+.phase3b7v-buyer-shipping-summary {
+  border: 1px dashed #bfdbfe;
+  border-radius: 14px;
+  background: #eff6ff;
+  padding: 10px;
+  margin: 8px 0 10px;
+  display: grid;
+  gap: 8px;
+}
+
+.phase3b7v-cost-compare {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.phase3b7v-cost-compare span,
+.phase3b7v-buyer-shipping-summary div {
+  border: 1px solid #dbeafe;
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 8px 10px;
+  display: grid;
+  gap: 3px;
+}
+
+.phase3b7v-cost-compare small,
+.phase3b7v-buyer-shipping-summary span {
+  color: #64748b;
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .02em;
+}
+
+.phase3b7v-cost-compare strong,
+.phase3b7v-buyer-shipping-summary strong {
+  color: #0f172a;
+  font-weight: 950;
+}
+
+.phase3b7v-cost-compare .is-different strong { color: #92400e; }
+.phase3b7v-cost-compare .is-same strong { color: #15803d; }
+.phase3b7v-cost-compare .is-muted strong { color: #94a3b8; }
+.phase3b7v-cost-compare em,
+.phase3b7v-buyer-shipping-summary > small {
+  grid-column: 1 / -1;
+  font-style: normal;
+  font-weight: 900;
+  border-radius: 999px;
+  padding: 7px 10px;
+  width: fit-content;
+}
+.phase3b7v-cost-compare .is-saving,
+.phase3b7v-buyer-shipping-summary .is-saving { background: #dcfce7; color: #166534; }
+.phase3b7v-cost-compare .is-extra,
+.phase3b7v-buyer-shipping-summary .is-extra { background: #ffedd5; color: #9a3412; }
+
+.phase3b7v-status-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  margin: 7px 0 9px;
+}
+
+.phase3b7v-status-pill {
+  border-radius: 999px;
+  padding: 6px 9px;
+  font-size: 0.78rem;
+  font-weight: 900;
+  border: 1px solid #dbeafe;
+  background: #f8fafc;
+  color: #334155;
+}
+.phase3b7v-status-pill.ok { background: #dcfce7; color: #166534; border-color: #bbf7d0; }
+.phase3b7v-status-pill.done { background: #dbeafe; color: #1d4ed8; border-color: #bfdbfe; }
+.phase3b7v-status-pill.danger { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
+.phase3b7v-status-pill.muted { background: #f1f5f9; color: #64748b; border-color: #e2e8f0; }
+.phase3b7v-status-pill.info { background: #e0f2fe; color: #0369a1; border-color: #bae6fd; }
+.phase3b7v-status-row small { color: #64748b; font-weight: 800; }
+
+.phase3b7v-buyer-shipping-summary {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+@media (max-width: 720px) {
+  .phase3b7v-cost-compare,
+  .phase3b7v-buyer-shipping-summary {
+    grid-template-columns: 1fr;
+  }
+}
+

@@ -275,6 +275,34 @@ async function updateShipmentFailure(serviceClient: any, shipmentId: string, mes
     .eq("id", shipmentId);
 }
 
+
+function extractBiteshipActualShippingCost(payload: JsonRecord) {
+  // Phase 3B.7V - simpan ongkir aktual dari response booking bila tersedia.
+  const courier = payload?.courier || {};
+  const candidates = [
+    payload?.price,
+    payload?.shipping_price,
+    payload?.order_price,
+    payload?.shipment_fee,
+    payload?.total_price,
+    courier?.price,
+    courier?.freight_cost,
+    courier?.cost,
+    courier?.shipping_price,
+    payload?.pricing?.total_price,
+    payload?.delivery?.price,
+    payload?.order?.price,
+    payload?.order?.shipping_price,
+    payload?.order?.courier?.price,
+    payload?.order?.courier?.freight_cost,
+  ];
+  for (const candidate of candidates) {
+    const value = toNumber(candidate, 0);
+    if (value > 0) return value;
+  }
+  return null;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return jsonResponse({ success: false, error: "Method tidak didukung." }, 405);
@@ -425,6 +453,7 @@ serve(async (req) => {
         booking_status: "BITESHIP_BOOKED",
         biteship_error: null,
         provider_response_json: biteshipResult,
+        actual_shipping_cost: extractBiteshipActualShippingCost(biteshipResult),
         booking_created_at: new Date().toISOString(),
         shipping_status: shipment.shipping_status || "DIKEMAS",
         updated_at: new Date().toISOString(),

@@ -181,6 +181,7 @@ export type ShipmentRow = {
   postal_code?: string | null;
   shipping_status?: string | null;
   shipping_cost?: number | null;
+  actual_shipping_cost?: number | null;
   expedition_name?: string | null;
   courier_name?: string | null;
   courier_code?: string | null;
@@ -191,6 +192,12 @@ export type ShipmentRow = {
   label_url?: string | null;
   provider_order_id?: string | null;
   provider_tracking_id?: string | null;
+  provider_service_code?: string | null;
+  provider_response_json?: any | null;
+  tracking_status?: string | null;
+  tracking_checked_at?: string | null;
+  tracking_history_json?: any | null;
+  tracking_response_json?: any | null;
   biteship_error?: string | null;
   created_at?: string | null;
   updated_at?: string | null;

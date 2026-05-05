@@ -19,6 +19,123 @@ function statusLabel(value?: string | null) {
   return String(value || "-").replaceAll("_", " ").toLowerCase().replace(/\b\w/g, char => char.toUpperCase());
 }
 
+
+// Phase 3B.7V - Shipping Cost Display & Final Order Status Polish
+function phase3b7vNumber(value: any) {
+  if (value === null || value === undefined || value === "") return 0;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : 0;
+}
+
+function phase3b7vGetNestedNumber(source: any, paths: string[][]) {
+  for (const pathParts of paths) {
+    let cursor = source;
+    for (const part of pathParts) cursor = cursor?.[part];
+    const value = phase3b7vNumber(cursor);
+    if (value > 0) return value;
+  }
+  return 0;
+}
+
+function phase3b7vActualShippingCost(shipment: ShipmentRow | null) {
+  const direct = phase3b7vNumber((shipment as any)?.actual_shipping_cost);
+  if (direct > 0) return direct;
+
+  const payloads = [
+    (shipment as any)?.tracking_response_json,
+    (shipment as any)?.provider_response_json,
+  ].filter(Boolean);
+
+  for (const payload of payloads) {
+    const value = phase3b7vGetNestedNumber(payload, [
+      ["price"],
+      ["shipping_price"],
+      ["shipment_fee"],
+      ["order_price"],
+      ["total_price"],
+      ["courier", "price"],
+      ["courier", "freight_cost"],
+      ["courier", "cost"],
+      ["courier", "shipping_price"],
+      ["pricing", "total_price"],
+      ["delivery", "price"],
+      ["order", "price"],
+      ["order", "shipping_price"],
+      ["order", "courier", "price"],
+      ["order", "courier", "freight_cost"],
+    ]);
+    if (value > 0) return value;
+  }
+
+  return 0;
+}
+
+function phase3b7vBuyerShippingCost(order: OrderRow | null, shipment: ShipmentRow | null) {
+  return phase3b7vNumber((shipment as any)?.shipping_cost || (order as any)?.shipping_cost || 0);
+}
+
+function phase3b7vStatusText(value?: string | null) {
+  const raw = String(value || "-").trim();
+  if (!raw || raw === "-") return "-";
+  return raw
+    .replace(/^BITESHIP[_-]?/i, "Biteship ")
+    .replaceAll("_", " ")
+    .replaceAll("-", " ")
+    .toLowerCase()
+    .replace(/\b\w/g, char => char.toUpperCase());
+}
+
+function phase3b7vStatusTone(value?: string | null) {
+  const s = String(value || "").toLowerCase();
+  if (s.includes("deliver") || s.includes("diterima") || s.includes("selesai")) return "done";
+  if (s.includes("confirm") || s.includes("book") || s.includes("dikirim") || s.includes("transit") || s.includes("picked")) return "ok";
+  if (s.includes("failed") || s.includes("gagal") || s.includes("cancel") || s.includes("tolak")) return "danger";
+  if (s.includes("belum") || s.includes("pending")) return "muted";
+  return "info";
+}
+
+function Phase3B7VShippingCostCompare({ order, shipment }: { order: OrderRow | null; shipment: ShipmentRow | null }) {
+  if (!shipment) return null;
+  const buyerCost = phase3b7vBuyerShippingCost(order, shipment);
+  const actualCost = phase3b7vActualShippingCost(shipment);
+  const hasActual = actualCost > 0;
+  const isDifferent = hasActual && Math.abs(actualCost - buyerCost) >= 1;
+  const diff = actualCost - buyerCost;
+
+  return (
+    <div className="phase3b7v-cost-compare" data-phase="3b7v-shipping-cost-display">
+      <span>
+        <small>Ongkir dibayar buyer</small>
+        <strong>{formatCurrency(buyerCost)}</strong>
+      </span>
+      <span className={hasActual ? (isDifferent ? "is-different" : "is-same") : "is-muted"}>
+        <small>Ongkir aktual Biteship</small>
+        <strong>{hasActual ? formatCurrency(actualCost) : "Belum tersedia"}</strong>
+      </span>
+      {isDifferent && (
+        <em className={diff < 0 ? "is-saving" : "is-extra"}>
+          Selisih {diff < 0 ? "lebih hemat" : "tambahan"}: {formatCurrency(Math.abs(diff))}
+        </em>
+      )}
+    </div>
+  );
+}
+
+function Phase3B7VShipmentStatusSummary({ shipment }: { shipment: ShipmentRow | null }) {
+  if (!shipment) return null;
+  const booking = (shipment as any).booking_status || "BELUM_BOOKING";
+  const tracking = (shipment as any).tracking_status || "";
+  const checkedAt = (shipment as any).tracking_checked_at || "";
+
+  return (
+    <div className="phase3b7v-status-row" data-phase="3b7v-final-status-polish">
+      <span className={"phase3b7v-status-pill " + phase3b7vStatusTone(booking)}>Booking: {phase3b7vStatusText(booking)}</span>
+      {tracking && <span className={"phase3b7v-status-pill " + phase3b7vStatusTone(tracking)}>Tracking: {phase3b7vStatusText(tracking)}</span>}
+      {checkedAt && <small>Update tracking: {formatDate(checkedAt)}</small>}
+    </div>
+  );
+}
+
 function isImageProof(url?: string | null) {
   return !!url && /\.(png|jpe?g|webp|gif)(\?|$)/i.test(url);
 }
@@ -567,7 +684,8 @@ export function OrdersPage() {
                     <div className="shipment-card" key={row.id}>
                       <p>{row.courier_name || row.expedition_name || "-"} {row.service_name ? `/ ${row.service_name}` : ""} · {formatCurrency(Number(row.shipping_cost || 0))}</p>
                       <p>Resi: <strong>{row.tracking_number || "Belum ada"}</strong></p>
-                      <p>Status booking: {row.booking_status || "BELUM_BOOKING"}</p>
+                      <p>Status booking: <strong>{phase3b7vStatusText(row.booking_status || "BELUM_BOOKING")}</strong></p>
+                      {(row as any).tracking_status && <p>Status tracking: <strong>{phase3b7vStatusText((row as any).tracking_status)}</strong></p>}
                       {row.provider_order_id && <p>Biteship Order ID: <strong>{row.provider_order_id}</strong></p>}
                       {row.tracking_url && <p><a href={row.tracking_url} target="_blank" rel="noreferrer">Buka Tracking</a></p>}
                       {row.label_url && <p><a href={row.label_url} target="_blank" rel="noreferrer">Buka Label Biteship</a></p>}

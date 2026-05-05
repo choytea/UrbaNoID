@@ -34,6 +34,117 @@ function statusLabel(value?: string | null) {
   return String(value || "-").replaceAll("_", " ").toLowerCase().replace(/\b\w/g, char => char.toUpperCase());
 }
 
+
+// Phase 3B.7V - Shipping Cost Display & Final Order Status Polish
+function phase3b7vNumber(value: any) {
+  if (value === null || value === undefined || value === "") return 0;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : 0;
+}
+
+function phase3b7vGetNestedNumber(source: any, paths: string[][]) {
+  for (const pathParts of paths) {
+    let cursor = source;
+    for (const part of pathParts) cursor = cursor?.[part];
+    const value = phase3b7vNumber(cursor);
+    if (value > 0) return value;
+  }
+  return 0;
+}
+
+function phase3b7vActualShippingCost(shipment: ShipmentRow | null) {
+  const direct = phase3b7vNumber((shipment as any)?.actual_shipping_cost);
+  if (direct > 0) return direct;
+
+  const payloads = [
+    (shipment as any)?.tracking_response_json,
+    (shipment as any)?.provider_response_json,
+  ].filter(Boolean);
+
+  for (const payload of payloads) {
+    const value = phase3b7vGetNestedNumber(payload, [
+      ["price"],
+      ["shipping_price"],
+      ["shipment_fee"],
+      ["order_price"],
+      ["total_price"],
+      ["courier", "price"],
+      ["courier", "freight_cost"],
+      ["courier", "cost"],
+      ["courier", "shipping_price"],
+      ["pricing", "total_price"],
+      ["delivery", "price"],
+      ["order", "price"],
+      ["order", "shipping_price"],
+      ["order", "courier", "price"],
+      ["order", "courier", "freight_cost"],
+    ]);
+    if (value > 0) return value;
+  }
+
+  return 0;
+}
+
+function phase3b7vBuyerShippingCost(order: OrderRow | null, shipment: ShipmentRow | null) {
+  return phase3b7vNumber((shipment as any)?.shipping_cost || (order as any)?.shipping_cost || 0);
+}
+
+function phase3b7vStatusText(value?: string | null) {
+  const raw = String(value || "-").trim();
+  if (!raw || raw === "-") return "-";
+  return raw
+    .replace(/^BITESHIP[_-]?/i, "Biteship ")
+    .replaceAll("_", " ")
+    .replaceAll("-", " ")
+    .toLowerCase()
+    .replace(/\b\w/g, char => char.toUpperCase());
+}
+
+function phase3b7vStatusTone(value?: string | null) {
+  const s = String(value || "").toLowerCase();
+  if (s.includes("deliver") || s.includes("diterima") || s.includes("selesai")) return "done";
+  if (s.includes("confirm") || s.includes("book") || s.includes("dikirim") || s.includes("transit") || s.includes("picked")) return "ok";
+  if (s.includes("failed") || s.includes("gagal") || s.includes("cancel") || s.includes("tolak")) return "danger";
+  if (s.includes("belum") || s.includes("pending")) return "muted";
+  return "info";
+}
+
+function Phase3B7VBuyerShippingSummary({ order, shipment }: { order: OrderRow | null; shipment: ShipmentRow | null }) {
+  if (!shipment) return null;
+  const buyerCost = phase3b7vBuyerShippingCost(order, shipment);
+  const actualCost = phase3b7vActualShippingCost(shipment);
+  const hasActual = actualCost > 0;
+  const diff = actualCost - buyerCost;
+
+  return (
+    <div className="phase3b7v-buyer-shipping-summary" data-phase="3b7v-buyer-shipping-status-polish">
+      <div>
+        <span>Status Biteship</span>
+        <strong>{phase3b7vStatusText((shipment as any).booking_status || (shipment as any).tracking_status || shipment.shipping_status)}</strong>
+      </div>
+      {(shipment as any).tracking_checked_at && (
+        <div>
+          <span>Update Tracking</span>
+          <strong>{formatDate((shipment as any).tracking_checked_at)}</strong>
+        </div>
+      )}
+      <div>
+        <span>Ongkir Dibayar</span>
+        <strong>{formatCurrency(buyerCost)}</strong>
+      </div>
+      {hasActual && (
+        <div>
+          <span>Ongkir Aktual Biteship</span>
+          <strong>{formatCurrency(actualCost)}</strong>
+        </div>
+      )}
+      {hasActual && Math.abs(diff) >= 1 && (
+        <small className={diff < 0 ? "is-saving" : "is-extra"}>Selisih {diff < 0 ? "lebih hemat" : "tambahan"}: {formatCurrency(Math.abs(diff))}</small>
+      )}
+    </div>
+  );
+}
+
 function paymentStep(order: OrderRow | null) {
   if (!order) return 0;
   if (order.order_status === "SELESAI" || order.shipping_status === "DITERIMA") return 5;
@@ -592,6 +703,7 @@ export function BuyerProfilePage({ session, profile, onProfileUpdated }: Props) 
                     <div><span>Pembayaran</span><strong>{statusLabel(selectedOrder.payment_status)}</strong></div>
                     <div><span>Pengiriman</span><strong>{statusLabel(selectedOrder.shipping_status)}</strong></div>
                     <div><span>Resi</span><strong>{selectedShipment?.tracking_number || "Belum tersedia"}</strong></div>
+                    {selectedShipment?.booking_status && <div><span>Status Biteship</span><strong>{phase3b7vStatusText(selectedShipment.booking_status)}</strong></div>}
                   </div>
 
                   <div className="buyer-order-address-card">
@@ -599,6 +711,7 @@ export function BuyerProfilePage({ session, profile, onProfileUpdated }: Props) 
                     <p>{selectedOrder.shipping_address || "-"}</p>
                     <p>{[selectedOrder.shipping_district, selectedOrder.shipping_city, selectedOrder.shipping_province, selectedOrder.shipping_postal_code].filter(Boolean).join(", ")}</p>
                     <p>Ekspedisi: <strong>{selectedShipment?.courier_name || selectedShipment?.expedition_name || "-"} {selectedShipment?.service_name ? `/ ${selectedShipment.service_name}` : ""}</strong></p>
+                    <Phase3B7VBuyerShippingSummary order={selectedOrder} shipment={selectedShipment} />
                   </div>
 
                   <div className="table-wrap buyer-order-items-table">

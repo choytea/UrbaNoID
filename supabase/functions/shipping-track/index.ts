@@ -160,11 +160,22 @@ function extractTrackingFields(payload: JsonRecord) {
     null;
 
   const actualShippingCost =
+    // Phase 3B.7V actual cost candidates - lebih luas agar ongkir aktual Biteship mudah tampil di UI.
     toNumber(payload?.price) ??
     toNumber(payload?.shipping_price) ??
     toNumber(payload?.order_price) ??
     toNumber(payload?.shipment_fee) ??
+    toNumber(payload?.total_price) ??
+    toNumber(courier?.price) ??
+    toNumber(courier?.freight_cost) ??
+    toNumber(courier?.cost) ??
+    toNumber(courier?.shipping_price) ??
+    toNumber(payload?.pricing?.total_price) ??
+    toNumber(delivery?.price) ??
     toNumber(payload?.order?.price) ??
+    toNumber(payload?.order?.shipping_price) ??
+    toNumber(payload?.order?.courier?.price) ??
+    toNumber(payload?.order?.courier?.freight_cost) ??
     null;
 
   return {
