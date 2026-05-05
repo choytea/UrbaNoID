@@ -8,6 +8,7 @@ import {
   ClipboardList,
   ExternalLink,
   Heart,
+  Home,
   Info,
   LogIn,
   LogOut,
@@ -336,6 +337,10 @@ export function Layout({ children, session, profile }: Props) {
         <div className="header-auth-actions buyer-header-actions">
           {showBuyerHeader && (
             <>
+              <a className="header-auth-btn buyer-home-header-btn" href="#/buyer">
+                <Home size={17} /> Beranda
+              </a>
+
               <button type="button" className="header-auth-btn" onClick={() => setInfoOpen(true)}>
                 <Info size={17} /> Info Toko
               </button>

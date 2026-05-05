@@ -99,6 +99,7 @@ export function BuyerProfilePage({ session, profile, onProfileUpdated }: Props) 
   const [paymentFile, setPaymentFile] = useState<File | null>(null);
   const [selectedPaymentId, setSelectedPaymentId] = useState("");
   const [selectedProof, setSelectedProof] = useState<{ url: string; title: string; isImage: boolean } | null>(null);
+  const [profileEditMode, setProfileEditMode] = useState(false);
   const [submittingPayment, setSubmittingPayment] = useState(false);
   const [paymentForm, setPaymentForm] = useState({
     payer_name: profile?.full_name || "",
@@ -278,8 +279,16 @@ export function BuyerProfilePage({ session, profile, onProfileUpdated }: Props) 
     setFollowed(!!follow);
   }
 
-  async function saveProfile(event: React.FormEvent) {
-    event.preventDefault();
+  function startEditProfile(event?: React.MouseEvent<HTMLButtonElement>) {
+    event?.preventDefault();
+    event?.stopPropagation();
+    setMessage("");
+    setProfileEditMode(true);
+  }
+
+  async function saveProfile(event?: React.FormEvent | React.MouseEvent<HTMLButtonElement>) {
+    event?.preventDefault();
+    event?.stopPropagation();
     if (!session) return;
 
     const { error } = await supabase.from("profiles").upsert({
@@ -292,11 +301,18 @@ export function BuyerProfilePage({ session, profile, onProfileUpdated }: Props) 
     }, { onConflict: "id" });
 
     setMessage(error ? error.message : "Profil buyer berhasil diperbarui.");
-    if (!error) onProfileUpdated?.();
+    if (!error) {
+      setProfileEditMode(false);
+      onProfileUpdated?.();
+    }
   }
 
   async function uploadAvatar(file: File) {
     if (!session) return;
+    if (!profileEditMode) {
+      setMessage("Klik Edit Profil terlebih dahulu sebelum mengganti foto profil.");
+      return;
+    }
     setMessage("Mengunggah foto profil...");
     const cleanName = file.name.toLowerCase().replace(/[^a-z0-9.\-_]+/g, "-");
     const path = `${session.user.id}/${Date.now()}-${cleanName}`;
@@ -478,26 +494,42 @@ export function BuyerProfilePage({ session, profile, onProfileUpdated }: Props) 
       {message && <div className={message.toLowerCase().includes("gagal") || message.toLowerCase().includes("error") ? "error-box" : "success-box"}>{message}</div>}
 
       {activeTab === "profile" && (
-        <form className="profile-form" onSubmit={saveProfile}>
+        <form className={`profile-form ${profileEditMode ? "profile-edit-mode" : "profile-view-mode"}`} onSubmit={(event) => { event.preventDefault(); if (profileEditMode) saveProfile(event); }}>
           <div className="avatar-box">
             <img src={form.avatar_url || "https://placehold.co/140x140/111827/ffffff?text=Buyer"} alt="Profil buyer" />
             <label>
               Upload Foto Profil
-              <input type="file" accept="image/*" onChange={event => { const file = event.target.files?.[0]; if (file) uploadAvatar(file); }} />
+              <input type="file" accept="image/*" disabled={!profileEditMode} onChange={event => { const file = event.target.files?.[0]; if (file) uploadAvatar(file); }} />
             </label>
           </div>
           <div className="checkout-grid">
-            <label>Nama Lengkap<input value={form.full_name} onChange={e => setForm({ ...form, full_name: e.target.value })} /></label>
-            <label>Username<input value={form.username} onChange={e => setForm({ ...form, username: e.target.value })} /></label>
-            <label>Email<input value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} type="email" /></label>
-            <label>Nomor HP<input value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} /></label>
-            <label className="checkout-full">Alamat Lengkap<textarea value={form.address_line} onChange={e => setForm({ ...form, address_line: e.target.value })} rows={3} /></label>
-            <label>Kecamatan<input value={form.district} onChange={e => setForm({ ...form, district: e.target.value })} /></label>
-            <label>Kota/Kabupaten<input value={form.city} onChange={e => setForm({ ...form, city: e.target.value })} /></label>
-            <label>Provinsi<input value={form.province} onChange={e => setForm({ ...form, province: e.target.value })} /></label>
-            <label>Kode Pos<input value={form.postal_code} onChange={e => setForm({ ...form, postal_code: e.target.value })} /></label>
+            <label>Nama Lengkap<input value={form.full_name} disabled={!profileEditMode} onChange={e => setForm({ ...form, full_name: e.target.value })} /></label>
+            <label>Username<input value={form.username} disabled={!profileEditMode} onChange={e => setForm({ ...form, username: e.target.value })} /></label>
+            <label>Email<input value={form.email} disabled={!profileEditMode} onChange={e => setForm({ ...form, email: e.target.value })} type="email" /></label>
+            <label>Nomor HP<input value={form.phone} disabled={!profileEditMode} onChange={e => setForm({ ...form, phone: e.target.value })} /></label>
+            <label className="checkout-full">Alamat Lengkap<textarea value={form.address_line} disabled={!profileEditMode} onChange={e => setForm({ ...form, address_line: e.target.value })} rows={3} /></label>
+            <label>Kecamatan<input value={form.district} disabled={!profileEditMode} onChange={e => setForm({ ...form, district: e.target.value })} /></label>
+            <label>Kota/Kabupaten<input value={form.city} disabled={!profileEditMode} onChange={e => setForm({ ...form, city: e.target.value })} /></label>
+            <label>Provinsi<input value={form.province} disabled={!profileEditMode} onChange={e => setForm({ ...form, province: e.target.value })} /></label>
+            <label>Kode Pos<input value={form.postal_code} disabled={!profileEditMode} onChange={e => setForm({ ...form, postal_code: e.target.value })} /></label>
           </div>
-          <button className="btn-primary" type="submit">Simpan Profil</button>
+          {profileEditMode ? (
+            <button
+              className="btn-primary"
+              type="button"
+              onClick={saveProfile}
+            >
+              Simpan Profil
+            </button>
+          ) : (
+            <button
+              className="btn-secondary profile-edit-toggle"
+              type="button"
+              onClick={startEditProfile}
+            >
+              Edit Profil
+            </button>
+          )}
         </form>
       )}
 

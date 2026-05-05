@@ -6647,3 +6647,34 @@ button.danger {
 .phase-3b-7-buyer-orders .payment-proof-preview .proof-preview-link:hover {
   text-decoration-thickness: 2px;
 }
+
+
+/* Phase 3B.7M: Profile edit/view mode and buyer Home header */
+.buyer-home-header-btn {
+  text-decoration: none;
+}
+.profile-view-mode input:disabled,
+.profile-view-mode textarea:disabled,
+.profile-view-mode select:disabled {
+  background: #f8fafc;
+  color: #0f172a;
+  opacity: 1;
+  cursor: default;
+}
+.profile-view-mode input[type="file"]:disabled {
+  cursor: not-allowed;
+  opacity: .65;
+}
+.profile-edit-toggle {
+  width: 100%;
+  justify-content: center;
+  font-weight: 900;
+}
+.store-profile-view-mode input:disabled,
+.store-profile-view-mode textarea:disabled,
+.store-profile-view-mode select:disabled {
+  background: #f8fafc;
+  color: #0f172a;
+  opacity: 1;
+  cursor: default;
+}
