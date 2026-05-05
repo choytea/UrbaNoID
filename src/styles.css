@@ -6678,3 +6678,21 @@ button.danger {
   opacity: 1;
   cursor: default;
 }
+
+
+/* seller-profile-view-lock-3b7r */
+[data-seller-profile-view-lock="locked"] input:not([type="hidden"]),
+[data-seller-profile-view-lock="locked"] textarea,
+[data-seller-profile-view-lock="locked"] select {
+  pointer-events: none;
+  cursor: not-allowed;
+  opacity: 0.82;
+  background-color: #f8fafc;
+}
+
+[data-seller-profile-view-lock="edit"] input,
+[data-seller-profile-view-lock="edit"] textarea,
+[data-seller-profile-view-lock="edit"] select {
+  pointer-events: auto;
+  opacity: 1;
+}
