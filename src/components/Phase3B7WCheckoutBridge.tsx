@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+﻿import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Loader2, Truck } from "lucide-react";
 import { supabase } from "../lib/supabase";
@@ -533,6 +533,8 @@ function findProductDetailContainers() {
 }
 
 function ensureProductDetailExpeditionDoesNotBlock() {
+  // Phase 3B.8-R11: product detail expedition auto-note disabled.
+  return;
   const containers = findProductDetailContainers();
   for (const detail of containers) {
     const select = findControlNearLabel(detail, ["Ekspedisi Pengiriman", "Ekspedisi"], "select") as HTMLSelectElement | null;
@@ -553,7 +555,7 @@ function ensureProductDetailExpeditionDoesNotBlock() {
         const note = document.createElement("div");
         note.className = "phase3b7w-r14-detail-expedition-note";
         note.setAttribute("data-phase3b7w-r14-detail-expedition-note", "true");
-        note.textContent = "Ekspedisi dan ongkir aktual dipilih otomatis saat Checkout Pesanan.";
+        note.textContent = "";
         block.parentElement?.insertBefore(note, block);
       }
     }
@@ -970,4 +972,6 @@ export function Phase3B7WCheckoutBridge() {
   observer.observe(document.documentElement, { childList: true, subtree: true, characterData: true });
   window.setTimeout(normalizeCart, 250);
 })();
+
+
 
