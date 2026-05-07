@@ -196,8 +196,8 @@ export function ProductDetailModal({
   }
 
   function validateShipping() {
-    if (shippingOptions.length > 0 && !selectedShipping) {
-      setLocalMessage("Pilih ekspedisi pengiriman terlebih dahulu.");
+    if (false && (shippingOptions.length > 0 && !selectedShipping)) {
+      setLocalMessage("Ekspedisi dan ongkir aktual dipilih otomatis saat Checkout Pesanan.");
       return false;
     }
     return true;
@@ -339,3 +339,6 @@ export function ProductDetailModal({
     </div>
   );
 }
+
+
+// PHASE_3B_8_R3_PRODUCT_DETAIL_MANUAL_EXPEDITION_DISABLED

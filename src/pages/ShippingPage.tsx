@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { ShippingExpedition } from "../types";
 import { formatCurrency } from "../lib/utils";
+import Phase3B8R4ExpeditionRatePreview from "../components/Phase3B8R4ExpeditionRatePreview";
 
 const emptyForm = {
   id: "",
@@ -124,9 +125,9 @@ export function ShippingPage() {
       <div className="section-title">
         <div>
           <h1>Ekspedisi</h1>
-          <p>Kelola pilihan ekspedisi yang muncul saat buyer memasukkan keranjang atau checkout.</p>
+          <p>Kelola kurir aktif untuk whitelist/fallback. Tarif utama checkout dihitung otomatis dari Biteship Rates API.</p>
           <div className="info-box shipping-integration-note">
-            Mode manual aktif langsung. Mode API/resi otomatis memakai Supabase Edge Function agar API key ekspedisi tetap aman di server.
+            Mode Biteship aktif: tarif utama checkout berasal dari Biteship Rates API. Daftar ini hanya whitelist/fallback kurir.
           </div>
         </div>
         <div className="button-row">
@@ -145,8 +146,9 @@ export function ShippingPage() {
       {message && <div className="success-box">{message}</div>}
 
       <div className="table-wrap">
-        <table className="master-table shipping-table">
-          <thead><tr><th>No</th><th>Ekspedisi</th><th>Layanan</th><th>Kode</th><th>Tarif</th><th>Estimasi</th><th>Provider</th><th>Fitur</th><th>Status</th><th>Aksi</th></tr></thead>
+        <Phase3B8R4ExpeditionRatePreview />
+<table className="master-table shipping-table">
+          <thead><tr><th>No</th><th>Ekspedisi</th><th>Layanan</th><th>Kode</th><th>Tarif fallback</th><th>Estimasi</th><th>Provider</th><th>Fitur</th><th>Status</th><th>Aksi</th></tr></thead>
           <tbody>
             {filtered.map((row, index) => (
               <tr key={row.id}>
@@ -185,7 +187,7 @@ export function ShippingPage() {
               <label>Nama Ekspedisi<input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} required /></label>
               <label>Kode Kurir<input value={form.courier_code} onChange={e => setForm({ ...form, courier_code: e.target.value })} placeholder="JNE/JNT/SICEPAT" /></label>
               <label>Layanan<input value={form.service_name} onChange={e => setForm({ ...form, service_name: e.target.value })} placeholder="REG/YES/ECO" /></label>
-              <label>Tarif Dasar<input value={form.base_cost} onChange={e => setForm({ ...form, base_cost: Number(e.target.value || 0) })} type="number" min={0} /></label>
+              <label>Tarif fallback<input value={form.base_cost} onChange={e => setForm({ ...form, base_cost: Number(e.target.value || 0) })} type="number" min={0} /></label>
               <label>Estimasi<input value={form.etd_text} onChange={e => setForm({ ...form, etd_text: e.target.value })} placeholder="2-4 hari" /></label>
               <label>Urutan<input value={form.display_order} onChange={e => setForm({ ...form, display_order: Number(e.target.value || 1) })} type="number" /></label>
               <label>Provider API<input value={form.provider_name} onChange={e => setForm({ ...form, provider_name: e.target.value })} placeholder="Biteship / RajaOngkir / Manual" /></label>
@@ -209,3 +211,6 @@ export function ShippingPage() {
 }
 
 export default ShippingPage;
+
+
+// PHASE_3B_8_R3_EXPEDITION_ADMIN_COPY_NORMALIZED

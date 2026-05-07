@@ -140,6 +140,65 @@ function isImageProof(url?: string | null) {
   return !!url && /\.(png|jpe?g|webp|gif)(\?|$)/i.test(url);
 }
 
+// Phase 3B.8 - Order Lifecycle Finalization
+function phase3b8Upper(value?: string | null) {
+  return String(value || "").trim().toUpperCase();
+}
+
+function phase3b8IsCancelled(order?: OrderRow | null) {
+  if (!order) return false;
+  return phase3b8Upper(order.order_status) === "DIBATALKAN" ||
+    phase3b8Upper(order.payment_status) === "DIBATALKAN" ||
+    phase3b8Upper(order.shipping_status) === "DIBATALKAN";
+}
+
+function phase3b8IsCompleted(order?: OrderRow | null) {
+  if (!order) return false;
+  return phase3b8Upper(order.order_status) === "SELESAI" || phase3b8Upper(order.shipping_status) === "DITERIMA";
+}
+
+function phase3b8PaymentConfirmed(order?: OrderRow | null) {
+  return phase3b8Upper(order?.payment_status) === "DIBAYAR";
+}
+
+function phase3b8CanReviewPayment(order?: OrderRow | null, payment?: PaymentRow | null) {
+  if (!order || !payment || phase3b8IsCancelled(order) || phase3b8IsCompleted(order)) return false;
+  if (phase3b8Upper(payment.payment_status) === "DIBAYAR") return false;
+  return true;
+}
+
+function phase3b8CanPrepareShipment(order?: OrderRow | null) {
+  if (!order || phase3b8IsCancelled(order) || phase3b8IsCompleted(order)) return false;
+  return phase3b8PaymentConfirmed(order);
+}
+
+function phase3b8CanBookShipment(order?: OrderRow | null, row?: ShipmentRow | null) {
+  if (!row || !phase3b8CanPrepareShipment(order)) return false;
+  return !row.provider_order_id;
+}
+
+function phase3b8CanTrackShipment(row?: ShipmentRow | null) {
+  if (!row) return false;
+  return Boolean(row.tracking_number || row.provider_tracking_id || row.provider_order_id);
+}
+
+function phase3b8LifecycleHint(order?: OrderRow | null) {
+  if (!order) return "";
+  if (phase3b8IsCancelled(order)) return "Pesanan dibatalkan. Aksi pembayaran dan pengiriman dikunci.";
+  if (phase3b8IsCompleted(order)) return "Pesanan selesai/diterima. Aksi operasional dikunci.";
+  if (phase3b8Upper(order.payment_status) !== "DIBAYAR") return "Pembayaran belum terkonfirmasi. Booking, input resi, dan pengiriman dikunci sampai pembayaran dibayar.";
+  if (phase3b8Upper(order.shipping_status) === "DIKIRIM") return "Pesanan sudah dikirim. Tunggu konfirmasi diterima dari buyer atau tracking selesai.";
+  return "Pembayaran sudah terkonfirmasi. Pesanan siap diproses/dikirim.";
+}
+
+
+// Phase 3B.7X - Seller Cancelled Order Guard
+function phase3b7xSellerOrderCancelled(order?: OrderRow | null) {
+  if (!order) return false;
+  const value = String(order.order_status || "").toUpperCase() + " " + String(order.payment_status || "").toUpperCase() + " " + String(order.shipping_status || "").toUpperCase();
+  return value.includes("DIBATALKAN");
+}
+
 function escapeHtml(value: string) {
   return String(value || "").replace(/[&<>"']/g, char => ({
     "&": "&amp;",
@@ -221,22 +280,72 @@ export function OrdersPage() {
   async function updateOrderStatus(field: "order_status" | "payment_status" | "shipping_status", value: string) {
     if (!selectedOrder) return;
 
-    const { error } = await supabase.from("orders").update({ [field]: value, updated_at: new Date().toISOString() }).eq("id", selectedOrder.id);
+    if (phase3b8IsCancelled(selectedOrder) || phase3b8IsCompleted(selectedOrder)) {
+      setError("Pesanan yang dibatalkan/selesai tidak dapat diubah dari halaman ini.");
+      return;
+    }
+
+    if ((field === "order_status" && ["DIPROSES", "SELESAI"].includes(value)) ||
+        (field === "shipping_status" && ["DIKEMAS", "DIKIRIM", "DITERIMA"].includes(value))) {
+      if (!phase3b8PaymentConfirmed(selectedOrder)) {
+        setError("Pembayaran harus dikonfirmasi sebagai DIBAYAR sebelum pesanan diproses/dikirim.");
+        return;
+      }
+    }
+
+    const nowIso = new Date().toISOString();
+    const orderPatch: Record<string, any> = {
+      [field]: value,
+      updated_at: nowIso,
+      lifecycle_status_updated_at: nowIso,
+      lifecycle_last_event: `${field}:${value}`,
+    };
+
+    if (field === "payment_status" && value === "DIBAYAR") {
+      orderPatch.paid_at = nowIso;
+      orderPatch.payment_verified_at = nowIso;
+      orderPatch.order_status = "DIPROSES";
+      if (!selectedOrder.shipping_status || selectedOrder.shipping_status === "BELUM_DIKIRIM") orderPatch.shipping_status = "DIKEMAS";
+    }
+    if (field === "shipping_status" && value === "DIKEMAS") {
+      orderPatch.order_status = "DIPROSES";
+      orderPatch.processing_started_at = nowIso;
+    }
+    if (field === "shipping_status" && value === "DIKIRIM") {
+      orderPatch.shipped_at = nowIso;
+    }
+    if (field === "shipping_status" && value === "DITERIMA") {
+      orderPatch.order_status = "SELESAI";
+      orderPatch.received_at = nowIso;
+      orderPatch.completed_at = nowIso;
+    }
+
+    const { error } = await supabase.from("orders").update(orderPatch).eq("id", selectedOrder.id);
     if (error) {
       setError(error.message);
       return;
     }
 
     if (field === "payment_status") {
-      await supabase.from("payments").update({ payment_status: value, updated_at: new Date().toISOString() }).eq("order_id", selectedOrder.id);
+      await supabase.from("payments").update({
+        payment_status: value,
+        paid_at: value === "DIBAYAR" ? nowIso : undefined,
+        verified_at: value === "DIBAYAR" ? nowIso : undefined,
+        updated_at: nowIso,
+      }).eq("order_id", selectedOrder.id);
     }
     if (field === "shipping_status") {
-      await supabase.from("shipments").update({ shipping_status: value }).eq("order_id", selectedOrder.id);
+      await supabase.from("shipments").update({
+        shipping_status: value,
+        shipped_at: value === "DIKIRIM" ? nowIso : undefined,
+        delivered_at: value === "DITERIMA" ? nowIso : undefined,
+        updated_at: nowIso,
+      }).eq("order_id", selectedOrder.id);
     }
 
     await load();
     await loadDetails(selectedOrder.id);
-    setSelectedOrder(prev => prev ? { ...prev, [field]: value } : prev);
+    setSelectedOrder(prev => prev ? { ...prev, ...orderPatch } : prev);
   }
 
 
@@ -388,6 +497,10 @@ export function OrdersPage() {
 
   async function bookBiteship(row: ShipmentRow) {
     if (!selectedOrder) return;
+    if (!phase3b8CanPrepareShipment(selectedOrder)) {
+      setError("Pembayaran harus dikonfirmasi sebelum booking pengiriman.");
+      return;
+    }
 
     const ok = confirm(`Booking resi Biteship untuk pesanan ${displayOrderNo(selectedOrder)}? Pastikan data alamat toko, alamat buyer, berat, dan ekspedisi sudah benar.`);
     if (!ok) return;
@@ -453,6 +566,10 @@ export function OrdersPage() {
 
   async function reviewPayment(row: PaymentRow, action: "APPROVE" | "REJECT") {
     if (!selectedOrder) return;
+    if (!phase3b8CanReviewPayment(selectedOrder, row)) {
+      setError("Pembayaran tidak dapat diproses karena status pesanan sudah dikunci atau sudah dibayar.");
+      return;
+    }
 
     const note = action === "REJECT"
       ? window.prompt("Catatan penolakan bukti pembayaran:", row.rejection_reason || "")
@@ -587,10 +704,16 @@ export function OrdersPage() {
                 <strong>{formatCurrency(Number(selectedOrder.grand_total || selectedOrder.total_amount || 0))}</strong>
               </div>
 
+              {phase3b8LifecycleHint(selectedOrder) && (
+                <div className={phase3b8IsCancelled(selectedOrder) ? "phase3b8-lifecycle-notice seller danger" : "phase3b8-lifecycle-notice seller"}>
+                  {phase3b8LifecycleHint(selectedOrder)}
+                </div>
+              )}
+
               <div className="order-status-grid">
                 <label>
                   Status Order
-                  <select value={selectedOrder.order_status || ""} onChange={e => updateOrderStatus("order_status", e.target.value)}>
+                  <select disabled={phase3b8IsCancelled(selectedOrder) || phase3b8IsCompleted(selectedOrder)} value={selectedOrder.order_status || ""} onChange={e => updateOrderStatus("order_status", e.target.value)}>
                     <option value="MENUNGGU_PEMBAYARAN">Menunggu Pembayaran</option>
                     <option value="DIPROSES">Diproses</option>
                     <option value="SELESAI">Selesai</option>
@@ -599,23 +722,31 @@ export function OrdersPage() {
                 </label>
                 <label>
                   Pembayaran
-                  <select value={selectedOrder.payment_status || ""} onChange={e => updateOrderStatus("payment_status", e.target.value)}>
+                  <select disabled={phase3b8IsCancelled(selectedOrder) || phase3b8IsCompleted(selectedOrder)} value={selectedOrder.payment_status || ""} onChange={e => updateOrderStatus("payment_status", e.target.value)}>
                     <option value="BELUM_DIBAYAR">Belum Dibayar</option>
                     <option value="MENUNGGU_KONFIRMASI">Menunggu Konfirmasi</option>
                     <option value="DIBAYAR">Dibayar</option>
                     <option value="DITOLAK">Ditolak</option>
+                    <option value="DIBATALKAN">Dibatalkan</option>
                   </select>
                 </label>
                 <label>
                   Pengiriman
-                  <select value={selectedOrder.shipping_status || ""} onChange={e => updateOrderStatus("shipping_status", e.target.value)}>
+                  <select disabled={phase3b8IsCancelled(selectedOrder) || phase3b8IsCompleted(selectedOrder)} value={selectedOrder.shipping_status || ""} onChange={e => updateOrderStatus("shipping_status", e.target.value)}>
                     <option value="BELUM_DIKIRIM">Belum Dikirim</option>
                     <option value="DIKEMAS">Dikemas</option>
                     <option value="DIKIRIM">Dikirim</option>
                     <option value="DITERIMA">Diterima</option>
+                    <option value="DIBATALKAN">Dibatalkan</option>
                   </select>
                 </label>
               </div>
+
+              {phase3b7xSellerOrderCancelled(selectedOrder) && (
+                <div className="phase3b7x-seller-cancelled-note" data-phase="3b7x-seller-cancelled-order">
+                  Pesanan ini dibatalkan oleh buyer sebelum pembayaran. Aksi verifikasi pembayaran dan booking pengiriman sebaiknya tidak dilakukan.
+                </div>
+              )}
 
               <div className="order-info-grid">
                 <div>
@@ -671,8 +802,8 @@ export function OrdersPage() {
                       )}
                       {row.rejection_reason && <p className="shipment-error-note">Ditolak: {row.rejection_reason}</p>}
                       <div className="button-row mini-button-row">
-                        <button className="btn-primary" disabled={paymentActionId === row.id || row.payment_status === "DIBAYAR"} onClick={() => reviewPayment(row, "APPROVE")}>Konfirmasi Dibayar</button>
-                        <button disabled={paymentActionId === row.id || row.payment_status === "DIBAYAR"} onClick={() => reviewPayment(row, "REJECT")}>Tolak Bukti</button>
+                        <button className="btn-primary" disabled={paymentActionId === row.id || row.payment_status === "DIBAYAR" || phase3b7xSellerOrderCancelled(selectedOrder)} onClick={() => reviewPayment(row, "APPROVE")}>Konfirmasi Dibayar</button>
+                        <button disabled={paymentActionId === row.id || row.payment_status === "DIBAYAR" || phase3b7xSellerOrderCancelled(selectedOrder)} onClick={() => reviewPayment(row, "REJECT")}>Tolak Bukti</button>
                       </div>
                     </div>
                   ))}
@@ -691,12 +822,12 @@ export function OrdersPage() {
                       {row.label_url && <p><a href={row.label_url} target="_blank" rel="noreferrer">Buka Label Biteship</a></p>}
                       {row.biteship_error && <p className="shipment-error-note">{row.biteship_error}</p>}
                       <div className="button-row mini-button-row">
-                        <button onClick={() => updateTrackingNumber(row)}>Input Resi</button>
+                        <button disabled={!phase3b8CanPrepareShipment(selectedOrder)} onClick={() => updateTrackingNumber(row)}>Input Resi</button>
                         <button onClick={() => printShipmentLabel(row)}>Cetak Label</button>
-                        <button className="btn-primary" disabled={bookingShipmentId === row.id || !!row.provider_order_id} onClick={() => bookBiteship(row)}>
+                        <button className="btn-primary" disabled={bookingShipmentId === row.id || !!row.provider_order_id || phase3b7xSellerOrderCancelled(selectedOrder)} onClick={() => bookBiteship(row)}>
                           {bookingShipmentId === row.id ? "Booking..." : row.provider_order_id ? "Sudah Booking" : "Booking Biteship"}
                         </button>
-                        <button disabled={trackingShipmentId === row.id || (!row.tracking_number && !row.provider_tracking_id)} onClick={() => trackBiteship(row)}>
+                        <button disabled={trackingShipmentId === row.id || !phase3b8CanTrackShipment(row)} onClick={() => trackBiteship(row)}>
                           {trackingShipmentId === row.id ? "Tracking..." : "Cek Tracking"}
                         </button>
                       </div>

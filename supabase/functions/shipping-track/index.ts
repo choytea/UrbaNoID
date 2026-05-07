@@ -1,430 +1,565 @@
-// ============================================================
-// UrbaNoiD Supabase Native
-// Phase 3B.7U - Biteship Tracking Sync
+// Phase 3B.8-R2 — Biteship Order Retrieve Mapping Polish
+// Phase 3B.8-R2-R1 syntax hotfix: remove escaped template literals for Deno deploy
 // Supabase Edge Function: shipping-track
-// ============================================================
-// Frontend already calls:
-//   supabase.functions.invoke("shipping-track", { body: { shipment_id } })
 //
-// Required secret:
-//   BITESHIP_API_KEY="biteship_test_..." or production key later
-// Optional secret:
-//   BITESHIP_API_BASE_URL="https://api.biteship.com"
-// ============================================================
+// Tujuan:
+// - Memperkuat Cek Tracking dengan fallback GET /v1/orders/:id.
+// - Membaca response order Biteship testing/production secara lengkap:
+//   response.status, courier.tracking_id, courier.waybill_id, courier.link,
+//   courier.history, courier.shipment_fee, price.
+// - Menyimpan hasil ke public.shipments tanpa menaruh API key di frontend.
 
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
-import { createClient } from "npm:@supabase/supabase-js@2";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const corsHeaders = {
+const PHASE = "3B.8-R2";
+const BITESHIP_BASE_URL = "https://api.biteship.com";
+
+const corsHeaders: Record<string, string> = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Content-Type": "application/json",
 };
 
-type JsonRecord = Record<string, any>;
-
-function jsonResponse(body: JsonRecord, status = 200) {
-  return new Response(JSON.stringify(body, null, 2), {
+function jsonResponse(payload: unknown, status = 200): Response {
+  return new Response(JSON.stringify(payload, null, 2), {
     status,
-    headers: {
-      ...corsHeaders,
-      "Content-Type": "application/json; charset=utf-8",
-    },
+    headers: corsHeaders,
   });
 }
 
-function asString(value: any, fallback = "") {
-  if (value === null || value === undefined) return fallback;
-  return String(value).trim();
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function nullableString(value: any) {
-  const text = asString(value);
+function asString(value: unknown): string | null {
+  if (value === null || value === undefined) return null;
+  const text = String(value).trim();
   return text ? text : null;
 }
 
-function toNumber(value: any, fallback: number | null = null) {
-  if (value === null || value === undefined || value === "") return fallback;
+function asNumber(value: unknown): number | null {
+  if (value === null || value === undefined || value === "") return null;
   const n = Number(value);
-  return Number.isFinite(n) ? n : fallback;
+  return Number.isFinite(n) ? n : null;
 }
 
-function normalizeCourier(value: any) {
-  return asString(value)
-    .toLowerCase()
-    .replace(/[^a-z0-9_\-]/g, "")
-    .trim();
+function firstString(...values: unknown[]): string | null {
+  for (const value of values) {
+    const text = asString(value);
+    if (text) return text;
+  }
+  return null;
 }
 
-function normalizeStatus(value: any) {
-  return asString(value)
-    .replace(/\s+/g, "_")
-    .replace(/[^a-zA-Z0-9_\-]/g, "")
-    .toUpperCase();
+function firstNumber(...values: unknown[]): number | null {
+  for (const value of values) {
+    const n = asNumber(value);
+    if (n !== null) return n;
+  }
+  return null;
 }
 
-function getServiceRoleKey() {
-  const direct = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-  if (direct) return direct;
+function getPath(obj: unknown, path: Array<string | number>): unknown {
+  let current: unknown = obj;
+  for (const key of path) {
+    if (Array.isArray(current) && typeof key === "number") {
+      current = current[key];
+      continue;
+    }
+    if (isRecord(current) && typeof key === "string") {
+      current = current[key];
+      continue;
+    }
+    return undefined;
+  }
+  return current;
+}
 
-  const secretKeys = Deno.env.get("SUPABASE_SECRET_KEYS");
-  if (secretKeys) {
-    try {
-      const parsed = JSON.parse(secretKeys);
-      if (parsed?.service_role) return parsed.service_role;
-      if (parsed?.serviceRole) return parsed.serviceRole;
-      if (parsed?.secret) return parsed.secret;
-      const values = Object.values(parsed).filter(Boolean);
-      if (values.length) return String(values[0]);
-    } catch (_) {
-      // ignore malformed env and fall through
+function getArray(value: unknown): unknown[] {
+  return Array.isArray(value) ? value : [];
+}
+
+function lastStatusFromHistory(history: unknown): string | null {
+  const arr = getArray(history);
+  if (!arr.length) return null;
+  for (let i = arr.length - 1; i >= 0; i -= 1) {
+    const item = arr[i];
+    if (isRecord(item)) {
+      const status = firstString(item.status, item.status_code, item.event);
+      if (status) return status;
     }
   }
-
-  throw new Error("SUPABASE_SERVICE_ROLE_KEY/SUPABASE_SECRET_KEYS belum tersedia di Edge Function.");
+  return null;
 }
 
-function getBiteshipApiKey() {
-  return (
-    Deno.env.get("BITESHIP_API_KEY") ||
-    Deno.env.get("BITESHIP_TEST_API_KEY") ||
-    Deno.env.get("BITESHIP_TOKEN") ||
-    ""
-  ).trim();
+function normalizeBiteshipStatus(status: string | null, hasOrderId: boolean): string {
+  const raw = (status || "").trim();
+  if (!raw && hasOrderId) return "BITESHIP_BOOKED";
+  if (!raw) return "BITESHIP_UNKNOWN";
+  const clean = raw
+    .replace(/([a-z])([A-Z])/g, "$1_$2")
+    .replace(/[\s-]+/g, "_")
+    .replace(/[^A-Za-z0-9_]/g, "")
+    .toUpperCase();
+  return clean.startsWith("BITESHIP_") ? clean : "BITESHIP_" + clean;
 }
 
-function getBearerToken(req: Request) {
-  const authHeader = req.headers.get("Authorization") || req.headers.get("authorization") || "";
-  return authHeader.replace(/^Bearer\s+/i, "").trim();
+function mapShippingStatus(rawStatus: string | null): string | null {
+  const status = (rawStatus || "").toLowerCase();
+  if (!status) return null;
+  if (/(cancel|failed|return|returned)/.test(status)) return "DIBATALKAN";
+  if (/(delivered|completed|done|finished|received)/.test(status)) return "DITERIMA";
+  if (/(drop|dropping|transit|in_transit|on_delivery|deliver|picked|pickup|picked_up|otw)/.test(status)) return "DIKIRIM";
+  if (/(confirmed|allocated|booked|booking|created|scheduled|pending|process)/.test(status)) return "DIKEMAS";
+  return null;
 }
 
-function mapBiteshipStatusToApp(status: string | null) {
-  const s = asString(status).toLowerCase().replace(/[^a-z]/g, "");
-  if (!s) return null;
+function pickPayloadRoot(payload: unknown): unknown {
+  // Biteship response sering root object langsung.
+  // Beberapa endpoint bisa mengembalikan data/object nested.
+  if (!isRecord(payload)) return payload;
+  if (isRecord(payload.data)) return payload.data;
+  if (isRecord(payload.order)) return payload.order;
+  return payload;
+}
 
-  if (["delivered"].includes(s)) return "DITERIMA";
-  if (["picked", "droppingoff", "returnintransit"].includes(s)) return "DIKIRIM";
-  if (s.includes("transit") || s.includes("dropping") || s.includes("picked")) return "DIKIRIM";
-  if (["confirmed", "allocated", "pickingup"].includes(s)) return "DIKEMAS";
-  if (["cancelled", "canceled", "rejected", "couriernotfound"].includes(s)) return "BELUM_DIKIRIM";
+type NormalizedTracking = {
+  providerOrderId: string | null;
+  providerTrackingId: string | null;
+  trackingNumber: string | null;
+  trackingUrl: string | null;
+  courierCompany: string | null;
+  courierType: string | null;
+  rawStatus: string | null;
+  bookingStatus: string;
+  shippingStatus: string | null;
+  actualShippingCost: number | null;
+  biteshipTotalPrice: number | null;
+  history: unknown[];
+  response: unknown;
+};
+
+function normalizeBiteshipResponse(payload: unknown, previous: Record<string, unknown>): NormalizedTracking {
+  const root = pickPayloadRoot(payload);
+  const courier = getPath(root, ["courier"]);
+  const courierObj = isRecord(courier) ? courier : {};
+  const history = getArray(courierObj.history).length
+    ? getArray(courierObj.history)
+    : getArray(getPath(root, ["history"]));
+
+  const rawStatus = firstString(
+    getPath(root, ["status"]),
+    getPath(root, ["order_status"]),
+    getPath(root, ["delivery", "status"]),
+    getPath(courierObj, ["status"]),
+    lastStatusFromHistory(history),
+    previous.tracking_status,
+    previous.booking_status,
+  );
+
+  const providerOrderId = firstString(
+    getPath(root, ["id"]),
+    getPath(root, ["order_id"]),
+    getPath(root, ["biteship_order_id"]),
+    previous.provider_order_id,
+  );
+
+  const providerTrackingId = firstString(
+    getPath(courierObj, ["tracking_id"]),
+    getPath(root, ["tracking_id"]),
+    getPath(root, ["courier_tracking_id"]),
+    previous.provider_tracking_id,
+  );
+
+  const trackingNumber = firstString(
+    getPath(courierObj, ["waybill_id"]),
+    getPath(courierObj, ["waybill"]),
+    getPath(courierObj, ["tracking_number"]),
+    getPath(root, ["waybill_id"]),
+    getPath(root, ["waybill"]),
+    getPath(root, ["tracking_number"]),
+    previous.tracking_number,
+  );
+
+  const trackingUrl = firstString(
+    getPath(courierObj, ["link"]),
+    getPath(courierObj, ["tracking_link"]),
+    getPath(root, ["tracking_url"]),
+    getPath(root, ["tracking_link"]),
+    previous.tracking_url,
+  );
+
+  const courierCompany = firstString(
+    getPath(courierObj, ["company"]),
+    getPath(root, ["courier_company"]),
+    previous.courier_company,
+    previous.provider_name,
+  );
+
+  const courierType = firstString(
+    getPath(courierObj, ["type"]),
+    getPath(root, ["courier_type"]),
+    getPath(root, ["courier_service"]),
+    previous.courier_type,
+    previous.service_type,
+  );
+
+  const actualShippingCost = firstNumber(
+    getPath(courierObj, ["shipment_fee"]),
+    getPath(courierObj, ["shipping_cost"]),
+    getPath(courierObj, ["price"]),
+    getPath(root, ["courier", "shipment_fee"]),
+    getPath(root, ["delivery", "fee"]),
+    getPath(root, ["shipment_fee"]),
+    getPath(root, ["shipping_cost"]),
+    getPath(root, ["actual_shipping_cost"]),
+    previous.actual_shipping_cost,
+  );
+
+  const biteshipTotalPrice = firstNumber(
+    getPath(root, ["price"]),
+    getPath(root, ["total_price"]),
+    getPath(root, ["amount"]),
+  );
+
+  return {
+    providerOrderId,
+    providerTrackingId,
+    trackingNumber,
+    trackingUrl,
+    courierCompany,
+    courierType,
+    rawStatus,
+    bookingStatus: normalizeBiteshipStatus(rawStatus, Boolean(providerOrderId)),
+    shippingStatus: mapShippingStatus(rawStatus),
+    actualShippingCost,
+    biteshipTotalPrice,
+    history,
+    response: payload,
+  };
+}
+
+function biteshipAuthHeaders(apiKey: string): HeadersInit {
+  const authValue = "Basic " + btoa(apiKey + ":");
+  return {
+    Authorization: authValue,
+    Accept: "application/json",
+    "Content-Type": "application/json",
+  };
+}
+
+async function fetchBiteship(apiKey: string, path: string): Promise<{
+  ok: boolean;
+  status: number;
+  path: string;
+  payload: unknown;
+  error: string | null;
+}> {
+  try {
+    const response = await fetch(BITESHIP_BASE_URL + path, {
+      method: "GET",
+      headers: biteshipAuthHeaders(apiKey),
+    });
+    const text = await response.text();
+    let payload: unknown = text;
+    try {
+      payload = text ? JSON.parse(text) : null;
+    } catch (_) {
+      // keep text payload
+    }
+
+    const message = isRecord(payload)
+      ? firstString(payload.message, payload.error, payload.errors)
+      : null;
+
+    const successFlag = isRecord(payload) ? payload.success : undefined;
+    const ok = response.ok && successFlag !== false;
+    return {
+      ok,
+      status: response.status,
+      path,
+      payload,
+      error: ok ? null : (message || ("Biteship returned HTTP " + response.status)),
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      status: 0,
+      path,
+      payload: null,
+      error: error instanceof Error ? error.message : String(error),
+    };
+  }
+}
+
+async function selectShipment(supabase: ReturnType<typeof createClient>, body: Record<string, unknown>) {
+  const shipmentId = firstString(body.shipment_id, body.shipmentId, body.id);
+  const orderId = firstString(body.order_id, body.orderId);
+  const providerOrderId = firstString(body.provider_order_id, body.providerOrderId, body.biteship_order_id);
+  const trackingNumber = firstString(body.tracking_number, body.trackingNumber, body.waybill_id, body.waybill);
+  const providerTrackingId = firstString(body.provider_tracking_id, body.providerTrackingId, body.tracking_id);
+
+  const selectColumns = "*";
+
+  if (shipmentId) {
+    const { data, error } = await supabase.from("shipments").select(selectColumns).eq("id", shipmentId).maybeSingle();
+    if (error) throw error;
+    if (data) return data as Record<string, unknown>;
+  }
+
+  if (orderId) {
+    const { data, error } = await supabase.from("shipments").select(selectColumns).eq("order_id", orderId).order("created_at", { ascending: false }).limit(1).maybeSingle();
+    if (error) throw error;
+    if (data) return data as Record<string, unknown>;
+  }
+
+  if (providerOrderId) {
+    const { data, error } = await supabase.from("shipments").select(selectColumns).eq("provider_order_id", providerOrderId).order("created_at", { ascending: false }).limit(1).maybeSingle();
+    if (error) throw error;
+    if (data) return data as Record<string, unknown>;
+  }
+
+  if (trackingNumber) {
+    const { data, error } = await supabase.from("shipments").select(selectColumns).eq("tracking_number", trackingNumber).order("created_at", { ascending: false }).limit(1).maybeSingle();
+    if (error) throw error;
+    if (data) return data as Record<string, unknown>;
+  }
+
+  if (providerTrackingId) {
+    const { data, error } = await supabase.from("shipments").select(selectColumns).eq("provider_tracking_id", providerTrackingId).order("created_at", { ascending: false }).limit(1).maybeSingle();
+    if (error) throw error;
+    if (data) return data as Record<string, unknown>;
+  }
 
   return null;
 }
 
-function extractTrackingFields(payload: JsonRecord) {
-  const courier = payload?.courier || payload?.order?.courier || {};
-  const delivery = payload?.delivery || payload?.order?.delivery || {};
-  const latestHistory = Array.isArray(payload?.history) && payload.history.length
-    ? payload.history[payload.history.length - 1]
-    : null;
+function buildBiteshipLookupPaths(shipment: Record<string, unknown>, body: Record<string, unknown>): string[] {
+  const paths: string[] = [];
 
-  const status =
-    nullableString(payload?.status) ||
-    nullableString(payload?.order_status) ||
-    nullableString(delivery?.status) ||
-    nullableString(courier?.status) ||
-    nullableString(latestHistory?.status) ||
-    nullableString(payload?.message);
-
-  const waybillId =
-    nullableString(payload?.waybill_id) ||
-    nullableString(payload?.courier_waybill_id) ||
-    nullableString(courier?.waybill_id) ||
-    nullableString(courier?.waybill_number) ||
-    nullableString(payload?.order?.courier?.waybill_id);
-
-  const trackingId =
-    nullableString(payload?.id) ||
-    nullableString(payload?.tracking_id) ||
-    nullableString(courier?.tracking_id) ||
-    nullableString(payload?.order?.courier?.tracking_id);
-
-  const trackingUrl =
-    nullableString(payload?.link) ||
-    nullableString(payload?.tracking_url) ||
-    nullableString(courier?.link) ||
-    nullableString(courier?.tracking_url) ||
-    nullableString(payload?.order?.courier?.link);
-
-  const labelUrl =
-    nullableString(payload?.label_url) ||
-    nullableString(payload?.shipping_label_url) ||
-    nullableString(courier?.label_url) ||
-    nullableString(payload?.order?.courier?.label_url);
-
-  const history =
-    Array.isArray(payload?.history) ? payload.history :
-    Array.isArray(payload?.trackings) ? payload.trackings :
-    Array.isArray(payload?.events) ? payload.events :
-    Array.isArray(payload?.details) ? payload.details :
-    null;
-
-  const actualShippingCost =
-    // Phase 3B.7V actual cost candidates - lebih luas agar ongkir aktual Biteship mudah tampil di UI.
-    toNumber(payload?.price) ??
-    toNumber(payload?.shipping_price) ??
-    toNumber(payload?.order_price) ??
-    toNumber(payload?.shipment_fee) ??
-    toNumber(payload?.total_price) ??
-    toNumber(courier?.price) ??
-    toNumber(courier?.freight_cost) ??
-    toNumber(courier?.cost) ??
-    toNumber(courier?.shipping_price) ??
-    toNumber(payload?.pricing?.total_price) ??
-    toNumber(delivery?.price) ??
-    toNumber(payload?.order?.price) ??
-    toNumber(payload?.order?.shipping_price) ??
-    toNumber(payload?.order?.courier?.price) ??
-    toNumber(payload?.order?.courier?.freight_cost) ??
-    null;
-
-  return {
-    status,
-    waybillId,
-    trackingId,
-    trackingUrl,
-    labelUrl,
-    history,
-    actualShippingCost,
-  };
-}
-
-function extractBiteshipError(payload: JsonRecord, fallback: string) {
-  return (
-    asString(payload?.error) ||
-    asString(payload?.message) ||
-    asString(payload?.detail) ||
-    fallback
+  const providerTrackingId = firstString(
+    body.provider_tracking_id,
+    body.providerTrackingId,
+    body.tracking_id,
+    shipment.provider_tracking_id,
   );
-}
 
-async function fetchBiteshipJson(url: string, apiKey: string) {
-  const response = await fetch(url, {
-    method: "GET",
-    headers: {
-      "Authorization": apiKey,
-      "Accept": "application/json",
-    },
-  });
+  const trackingNumber = firstString(
+    body.tracking_number,
+    body.trackingNumber,
+    body.waybill_id,
+    body.waybill,
+    shipment.tracking_number,
+  );
 
-  let payload: JsonRecord = {};
-  try {
-    payload = await response.json();
-  } catch (_) {
-    payload = { message: await response.text() };
+  const courierCompany = firstString(
+    body.courier_company,
+    body.courierCompany,
+    body.courier_code,
+    body.courierCode,
+    shipment.courier_company,
+    shipment.provider_name,
+  );
+
+  const providerOrderId = firstString(
+    body.provider_order_id,
+    body.providerOrderId,
+    body.biteship_order_id,
+    shipment.provider_order_id,
+  );
+
+  if (providerTrackingId) {
+    paths.push("/v1/trackings/" + encodeURIComponent(providerTrackingId));
   }
 
-  return { response, payload };
+  if (trackingNumber && courierCompany) {
+    paths.push("/v1/trackings/" + encodeURIComponent(trackingNumber) + "/couriers/" + encodeURIComponent(courierCompany.toLowerCase()));
+  }
+
+  // Phase 3B.8-R2 penting: fallback order retrieve dengan Biteship Order ID.
+  if (providerOrderId) {
+    paths.push("/v1/orders/" + encodeURIComponent(providerOrderId));
+  }
+
+  return Array.from(new Set(paths));
 }
 
-async function updateTrackingFailure(serviceClient: any, shipmentId: string, message: string, details?: JsonRecord) {
-  await serviceClient
-    .from("shipments")
-    .update({
-      biteship_error: message,
-      tracking_response_json: details || null,
-      tracking_checked_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", shipmentId);
-}
+serve(async (req: Request) => {
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders });
+  }
 
-serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
-  if (req.method !== "POST") return jsonResponse({ success: false, error: "Method tidak didukung." }, 405);
+  if (req.method !== "POST") {
+    return jsonResponse({ success: false, phase: PHASE, message: "Method not allowed" }, 405);
+  }
 
-  let body: JsonRecord = {};
+  const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
+  const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+  const biteshipApiKey = Deno.env.get("BITESHIP_API_KEY") || "";
+
+  if (!supabaseUrl || !serviceRoleKey) {
+    return jsonResponse({ success: false, phase: PHASE, message: "Supabase service env is not configured" }, 500);
+  }
+
+  if (!biteshipApiKey) {
+    return jsonResponse({ success: false, phase: PHASE, message: "BITESHIP_API_KEY secret is not configured" }, 500);
+  }
+
+  let body: Record<string, unknown> = {};
   try {
-    body = await req.json();
+    const parsed = await req.json();
+    body = isRecord(parsed) ? parsed : {};
   } catch (_) {
     body = {};
   }
 
-  const shipmentId = asString(body.shipment_id || body.shipmentId);
-  if (!shipmentId) {
-    return jsonResponse({ success: false, error: "shipment_id wajib dikirim." }, 400);
-  }
+  const supabase = createClient(supabaseUrl, serviceRoleKey, {
+    auth: { persistSession: false },
+  });
+
+  let shipment: Record<string, unknown> | null = null;
 
   try {
-    const supabaseUrl = Deno.env.get("SUPABASE_URL");
-    if (!supabaseUrl) throw new Error("SUPABASE_URL belum tersedia di Edge Function.");
+    shipment = await selectShipment(supabase, body);
+  } catch (error) {
+    return jsonResponse({
+      success: false,
+      phase: PHASE,
+      message: "Failed to find shipment",
+      error: error instanceof Error ? error.message : String(error),
+    }, 500);
+  }
 
-    const serviceKey = getServiceRoleKey();
-    const biteshipApiKey = getBiteshipApiKey();
-    if (!biteshipApiKey) throw new Error("Secret BITESHIP_API_KEY belum diset.");
+  if (!shipment) {
+    return jsonResponse({
+      success: false,
+      phase: PHASE,
+      message: "Shipment not found. Provide shipment_id, order_id, provider_order_id, provider_tracking_id, or tracking_number.",
+    }, 404);
+  }
 
-    const serviceClient = createClient(supabaseUrl, serviceKey, {
-      auth: { persistSession: false, autoRefreshToken: false },
+  const lookupPaths = buildBiteshipLookupPaths(shipment, body);
+
+  if (!lookupPaths.length) {
+    return jsonResponse({
+      success: false,
+      phase: PHASE,
+      message: "No Biteship tracking/order identifier found on shipment.",
+      shipment_id: shipment.id,
+      order_id: shipment.order_id,
+    }, 400);
+  }
+
+  const attempts = [];
+  let best: Awaited<ReturnType<typeof fetchBiteship>> | null = null;
+
+  for (const path of lookupPaths) {
+    const result = await fetchBiteship(biteshipApiKey, path);
+    attempts.push({
+      path: result.path,
+      ok: result.ok,
+      status: result.status,
+      error: result.error,
     });
-
-    const token = getBearerToken(req);
-    if (!token) return jsonResponse({ success: false, error: "Login seller/admin diperlukan." }, 401);
-
-    const { data: userData, error: userError } = await serviceClient.auth.getUser(token);
-    if (userError || !userData?.user) return jsonResponse({ success: false, error: "Token login tidak valid." }, 401);
-
-    const userId = userData.user.id;
-    const { data: profile, error: profileError } = await serviceClient
-      .from("profiles")
-      .select("id, role, is_active")
-      .eq("id", userId)
-      .maybeSingle();
-
-    if (profileError) throw profileError;
-    const role = asString(profile?.role).toUpperCase();
-    if (!profile?.is_active || !["ADMIN", "SUPERADMIN", "SELLER"].includes(role)) {
-      return jsonResponse({ success: false, error: "Akses seller/admin diperlukan untuk cek tracking." }, 403);
+    if (result.ok) {
+      best = result;
+      break;
     }
+  }
 
-    const { data: shipment, error: shipmentError } = await serviceClient
+  const now = new Date().toISOString();
+
+  if (!best) {
+    const errorMessage = attempts.map((a) => String(a.path) + ": " + String(a.error || a.status)).join(" | ");
+    await supabase
       .from("shipments")
-      .select("*")
-      .eq("id", shipmentId)
-      .single();
-
-    if (shipmentError || !shipment) return jsonResponse({ success: false, error: "Data shipment tidak ditemukan." }, 404);
-
-    if (!shipment.provider_tracking_id && !shipment.tracking_number && !shipment.provider_order_id) {
-      const msg = "Tracking ID, resi, atau Biteship Order ID belum tersedia.";
-      await updateTrackingFailure(serviceClient, shipmentId, msg);
-      return jsonResponse({ success: false, error: msg }, 400);
-    }
-
-    const { data: order, error: orderError } = await serviceClient
-      .from("orders")
-      .select("*")
-      .eq("id", shipment.order_id)
-      .maybeSingle();
-
-    if (orderError) throw orderError;
-
-    const apiBaseUrl = Deno.env.get("BITESHIP_API_BASE_URL") || "https://api.biteship.com";
-    const base = apiBaseUrl.replace(/\/$/, "");
-    const attempts: { label: string; url: string }[] = [];
-
-    if (shipment.provider_tracking_id) {
-      attempts.push({
-        label: "tracking_id",
-        url: `${base}/v1/trackings/${encodeURIComponent(asString(shipment.provider_tracking_id))}`,
-      });
-    }
-
-    const courierCode = normalizeCourier(shipment.courier_code || shipment.courier_name || shipment.expedition_name || "jne");
-    if (shipment.tracking_number && courierCode) {
-      attempts.push({
-        label: "public_waybill",
-        url: `${base}/v1/trackings/${encodeURIComponent(asString(shipment.tracking_number))}/couriers/${encodeURIComponent(courierCode)}`,
-      });
-    }
-
-    if (shipment.provider_order_id) {
-      attempts.push({
-        label: "order_id",
-        url: `${base}/v1/orders/${encodeURIComponent(asString(shipment.provider_order_id))}`,
-      });
-    }
-
-    let finalPayload: JsonRecord | null = null;
-    let finalSource = "";
-    let lastError = "";
-    let lastPayload: JsonRecord | undefined;
-
-    for (const attempt of attempts) {
-      const { response, payload } = await fetchBiteshipJson(attempt.url, biteshipApiKey);
-      lastPayload = payload;
-      if (response.ok && payload?.success !== false) {
-        finalPayload = payload;
-        finalSource = attempt.label;
-        break;
-      }
-      lastError = extractBiteshipError(payload, `Biteship tracking gagal di ${attempt.label} dengan HTTP ${response.status}.`);
-    }
-
-    if (!finalPayload) {
-      const msg = lastError || "Biteship tracking gagal. Tidak ada response sukses dari endpoint tracking/order.";
-      await updateTrackingFailure(serviceClient, shipmentId, msg, lastPayload);
-      return jsonResponse({ success: false, error: msg, biteship: lastPayload || null }, 400);
-    }
-
-    const fields = extractTrackingFields(finalPayload);
-    const trackingStatus = nullableString(fields.status);
-    const normalizedTrackingStatus = normalizeStatus(trackingStatus || "CHECKED");
-    const appShippingStatus = mapBiteshipStatusToApp(trackingStatus);
-
-    const updatePayload: JsonRecord = {
-      provider_name: "biteship",
-      tracking_status: trackingStatus,
-      tracking_number: fields.waybillId || shipment.tracking_number || null,
-      provider_tracking_id: fields.trackingId || shipment.provider_tracking_id || null,
-      tracking_url: fields.trackingUrl || shipment.tracking_url || null,
-      label_url: fields.labelUrl || shipment.label_url || null,
-      tracking_history_json: fields.history || null,
-      tracking_response_json: finalPayload,
-      actual_shipping_cost: fields.actualShippingCost,
-      booking_status: normalizedTrackingStatus ? `BITESHIP_${normalizedTrackingStatus}` : (shipment.booking_status || "BITESHIP_TRACKED"),
-      biteship_error: null,
-      tracking_checked_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    };
-
-    if (appShippingStatus) updatePayload.shipping_status = appShippingStatus;
-
-    const { error: updateError } = await serviceClient
-      .from("shipments")
-      .update(updatePayload)
-      .eq("id", shipmentId);
-
-    if (updateError) throw updateError;
-
-    if (order?.id && appShippingStatus) {
-      await serviceClient
-        .from("orders")
-        .update({
-          shipping_status: appShippingStatus,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", order.id);
-    }
-
-    if (order?.id) {
-      await serviceClient
-        .from("order_messages")
-        .insert({
-          order_id: order.id,
-          sender_id: userId,
-          sender_role: "SELLER",
-          message: `Cek tracking Biteship berhasil. Status: ${trackingStatus || "tercek"}. Resi: ${fields.waybillId || shipment.tracking_number || "-"}.`,
-          created_at: new Date().toISOString(),
-        });
-    }
+      .update({
+        booking_status: "BITESHIP_TRACKING_FAILED",
+        biteship_error: errorMessage,
+        tracking_checked_at: now,
+        updated_at: now,
+      })
+      .eq("id", shipment.id);
 
     return jsonResponse({
-      success: true,
-      message: "Cek tracking Biteship berhasil.",
-      shipment_id: shipmentId,
-      order_id: order?.id || shipment.order_id,
-      source: finalSource,
-      tracking_status: trackingStatus,
-      app_shipping_status: appShippingStatus,
-      tracking_number: fields.waybillId || shipment.tracking_number || null,
-      provider_tracking_id: fields.trackingId || shipment.provider_tracking_id || null,
-      tracking_url: fields.trackingUrl || shipment.tracking_url || null,
-      label_url: fields.labelUrl || shipment.label_url || null,
-      actual_shipping_cost: fields.actualShippingCost,
-      biteship: finalPayload,
-    });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    try {
-      const supabaseUrl = Deno.env.get("SUPABASE_URL");
-      const serviceKey = supabaseUrl ? getServiceRoleKey() : "";
-      if (supabaseUrl && serviceKey && shipmentId) {
-        const serviceClient = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } });
-        await updateTrackingFailure(serviceClient, shipmentId, message);
-      }
-    } catch (_) {
-      // ignore secondary failure
-    }
-    return jsonResponse({ success: false, error: message }, 500);
+      success: false,
+      phase: PHASE,
+      message: "Failed to retrieve Biteship tracking/order data.",
+      attempts,
+    }, 200);
   }
+
+  const normalized = normalizeBiteshipResponse(best.payload, shipment);
+
+  const shipmentUpdate: Record<string, unknown> = {
+    provider_name: "biteship",
+    provider_order_id: normalized.providerOrderId,
+    provider_tracking_id: normalized.providerTrackingId,
+    tracking_number: normalized.trackingNumber,
+    tracking_url: normalized.trackingUrl,
+    booking_status: normalized.bookingStatus,
+    tracking_status: normalized.rawStatus,
+    tracking_history_json: normalized.history,
+    tracking_response_json: normalized.response,
+    provider_response_json: normalized.response,
+    actual_shipping_cost: normalized.actualShippingCost,
+    biteship_error: null,
+    tracking_checked_at: now,
+    updated_at: now,
+  };
+
+  if (normalized.shippingStatus) {
+    shipmentUpdate.shipping_status = normalized.shippingStatus;
+  }
+
+  const { data: updatedShipment, error: updateError } = await supabase
+    .from("shipments")
+    .update(shipmentUpdate)
+    .eq("id", shipment.id)
+    .select("*")
+    .maybeSingle();
+
+  if (updateError) {
+    return jsonResponse({
+      success: false,
+      phase: PHASE,
+      message: "Biteship data retrieved, but failed to update shipment.",
+      error: updateError.message,
+      normalized,
+    }, 200);
+  }
+
+  // Best-effort sync ke order. Jika kolom tertentu tidak ada, jangan gagalkan tracking.
+  const orderId = firstString(shipment.order_id);
+  const orderSync: Record<string, unknown> = {};
+  if (normalized.shippingStatus) orderSync.shipping_status = normalized.shippingStatus;
+  if (normalized.rawStatus) orderSync.lifecycle_last_event = "biteship_" + normalized.rawStatus;
+  orderSync.lifecycle_status_updated_at = now;
+
+  let orderSyncError: string | null = null;
+  if (orderId && Object.keys(orderSync).length) {
+    const { error } = await supabase.from("orders").update(orderSync).eq("id", orderId);
+    if (error) orderSyncError = error.message;
+  }
+
+  return jsonResponse({
+    success: true,
+    phase: PHASE,
+    message: "Cek tracking Biteship berhasil",
+    used_endpoint: best.path,
+    attempts,
+    status: normalized.rawStatus,
+    booking_status: normalized.bookingStatus,
+    shipping_status: normalized.shippingStatus,
+    provider_order_id: normalized.providerOrderId,
+    provider_tracking_id: normalized.providerTrackingId,
+    tracking_number: normalized.trackingNumber,
+    tracking_url: normalized.trackingUrl,
+    actual_shipping_cost: normalized.actualShippingCost,
+    biteship_total_price: normalized.biteshipTotalPrice,
+    order_sync_warning: orderSyncError,
+    shipment: updatedShipment,
+  });
 });

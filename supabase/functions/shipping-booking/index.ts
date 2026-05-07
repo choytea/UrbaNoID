@@ -178,8 +178,8 @@ function extractBiteshipError(payload: JsonRecord, fallback: string) {
 }
 
 function buildBiteshipPayload(store: JsonRecord, order: JsonRecord, shipment: JsonRecord, items: JsonRecord[]) {
-  const courierCompany = normalizeCourier(shipment.courier_code || shipment.courier_name || shipment.expedition_name);
-  const courierType = normalizeService(shipment.provider_service_code || shipment.service_name || shipment.courier_type);
+  const courierCompany = normalizeCourier(shipment.provider_courier_company || shipment.courier_code || order.shipping_courier_company || shipment.courier_name || shipment.expedition_name);
+  const courierType = normalizeService(shipment.provider_service_code || shipment.provider_courier_type || order.shipping_courier_type || shipment.service_name || order.shipping_courier_service_name || shipment.courier_type);
 
   const originContactName = asString(store.origin_contact_name || store.store_name);
   const originPhone = cleanPhone(store.whatsapp || store.phone || store.telepon);
@@ -445,6 +445,7 @@ serve(async (req) => {
       .from("shipments")
       .update({
         provider_name: "biteship",
+        provider_rate_id: shipment.provider_rate_id || order.shipping_rate_id || null,
         provider_order_id: providerOrderId,
         provider_tracking_id: trackingId,
         tracking_number: waybillId,
@@ -453,6 +454,7 @@ serve(async (req) => {
         booking_status: "BITESHIP_BOOKED",
         biteship_error: null,
         provider_response_json: biteshipResult,
+        shipping_rate_response_json: shipment.shipping_rate_response_json || order.shipping_rate_response_json || null,
         actual_shipping_cost: extractBiteshipActualShippingCost(biteshipResult),
         booking_created_at: new Date().toISOString(),
         shipping_status: shipment.shipping_status || "DIKEMAS",

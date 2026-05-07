@@ -23,6 +23,7 @@ import { supabase } from "../lib/supabase";
 import { Profile, StoreChatContext, StoreProfile } from "../types";
 import { StoreInfoModal } from "./StoreInfoModal";
 import { StoreChatModal } from "./StoreChatModal";
+import { Phase3B7WCheckoutBridge } from "./Phase3B7WCheckoutBridge";
 
 type Props = {
   children: React.ReactNode;
@@ -486,6 +487,8 @@ export function Layout({ children, session, profile }: Props) {
       ) : (
         <main className="app-shell">{children}</main>
       )}
+
+      <Phase3B7WCheckoutBridge />
 
       <StoreInfoModal
         open={infoOpen}

@@ -167,6 +167,8 @@ export type PaymentRow = {
   rejection_reason?: string | null;
   created_at?: string | null;
   updated_at?: string | null;
+  paid_at?: string | null;
+  verified_at?: string | null;
 };
 
 export type ShipmentRow = {
@@ -192,6 +194,17 @@ export type ShipmentRow = {
   label_url?: string | null;
   provider_order_id?: string | null;
   provider_tracking_id?: string | null;
+  provider_rate_id?: string | null;
+  shipping_rate_provider?: string | null;
+  shipping_rate_response_json?: any | null;
+  shipping_rate_checked_at?: string | null;
+  provider_courier_company?: string | null;
+  provider_courier_type?: string | null;
+  provider_service_code?: string | null;
+  actual_shipping_cost?: number | null;
+  shipping_courier_etd?: string | null;
+  destination_area_id?: string | null;
+  destination_location_id?: string | null;
   provider_service_code?: string | null;
   provider_response_json?: any | null;
   tracking_status?: string | null;
@@ -201,6 +214,8 @@ export type ShipmentRow = {
   biteship_error?: string | null;
   created_at?: string | null;
   updated_at?: string | null;
+  shipped_at?: string | null;
+  delivered_at?: string | null;
 };
 
 export type OrderItemRow = {
@@ -282,10 +297,36 @@ export type OrderRow = {
   shipping_status: string | null;
   subtotal_amount: number | null;
   shipping_cost: number | null;
+  shipping_rate_id?: string | null;
+  shipping_rate_provider?: string | null;
+  shipping_rate_response_json?: any | null;
+  shipping_rate_checked_at?: string | null;
+  shipping_actual_cost?: number | null;
+  shipping_courier_company?: string | null;
+  shipping_courier_type?: string | null;
+  shipping_courier_service_name?: string | null;
+  shipping_courier_etd?: string | null;
+  shipping_origin_postal_code?: string | null;
+  shipping_destination_postal_code?: string | null;
   discount_amount: number | null;
   total_amount: number | null;
   grand_total: number | null;
   notes: string | null;
   created_at: string;
   updated_at: string | null;
+  cancelled_at?: string | null;
+  cancelled_by?: string | null;
+  cancelled_by_role?: string | null;
+  cancel_reason?: string | null;
+  cancel_stock_released_at?: string | null;
+
+  // Phase 3B.8-R1 - order lifecycle audit fields
+  paid_at?: string | null;
+  payment_verified_at?: string | null;
+  processing_started_at?: string | null;
+  shipped_at?: string | null;
+  received_at?: string | null;
+  completed_at?: string | null;
+  lifecycle_status_updated_at?: string | null;
+  lifecycle_last_event?: string | null;
 };

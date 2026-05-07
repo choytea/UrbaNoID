@@ -159,6 +159,73 @@ function isImageProof(url?: string | null) {
   return !!url && /\.(png|jpe?g|webp|gif)(\?|$)/i.test(url);
 }
 
+// Phase 3B.8 - Order Lifecycle Finalization
+function phase3b8Upper(value?: string | null) {
+  return String(value || "").trim().toUpperCase();
+}
+
+function phase3b8IsCancelled(order?: OrderRow | null) {
+  if (!order) return false;
+  return phase3b8Upper(order.order_status) === "DIBATALKAN" ||
+    phase3b8Upper(order.payment_status) === "DIBATALKAN" ||
+    phase3b8Upper(order.shipping_status) === "DIBATALKAN";
+}
+
+function phase3b8IsCompleted(order?: OrderRow | null) {
+  if (!order) return false;
+  return phase3b8Upper(order.order_status) === "SELESAI" || phase3b8Upper(order.shipping_status) === "DITERIMA";
+}
+
+function phase3b8CanConfirmReceived(order?: OrderRow | null, shipment?: ShipmentRow | null) {
+  if (!order || phase3b8IsCancelled(order) || phase3b8IsCompleted(order)) return false;
+  if (phase3b8Upper(order.payment_status) !== "DIBAYAR") return false;
+  const sent = phase3b8Upper(order.shipping_status) === "DIKIRIM" ||
+    phase3b8Upper(shipment?.shipping_status) === "DIKIRIM" ||
+    Boolean(shipment?.tracking_number || shipment?.provider_tracking_id);
+  return sent;
+}
+
+function phase3b8LifecycleNotice(order?: OrderRow | null) {
+  if (!order) return "";
+  if (phase3b8IsCancelled(order)) return "Pesanan ini dibatalkan dan tidak dapat diproses lagi.";
+  if (phase3b8IsCompleted(order)) return "Pesanan sudah diterima dan selesai.";
+  if (phase3b8Upper(order.payment_status) === "BELUM_DIBAYAR") return "Menunggu pembayaran buyer.";
+  if (phase3b8Upper(order.payment_status) === "MENUNGGU_KONFIRMASI") return "Pembayaran sedang menunggu verifikasi seller/admin.";
+  if (phase3b8Upper(order.payment_status) === "DIBAYAR" && phase3b8Upper(order.shipping_status) !== "DIKIRIM") return "Pembayaran sudah terkonfirmasi. Pesanan dapat diproses dan dikirim oleh seller.";
+  if (phase3b8Upper(order.shipping_status) === "DIKIRIM") return "Pesanan sedang dikirim. Konfirmasi diterima tersedia setelah paket sampai.";
+  return "";
+}
+
+
+// Phase 3B.7X - Buyer Cancel Unpaid Order
+function phase3b7xUpper(value?: string | null) {
+  return String(value || "").trim().toUpperCase();
+}
+
+function phase3b7xIsCancelled(order?: OrderRow | null) {
+  if (!order) return false;
+  return phase3b7xUpper(order.order_status) === "DIBATALKAN" ||
+    phase3b7xUpper(order.payment_status) === "DIBATALKAN" ||
+    phase3b7xUpper(order.shipping_status) === "DIBATALKAN";
+}
+
+function phase3b7xCanCancelOrder(order?: OrderRow | null, payment?: PaymentRow | null) {
+  if (!order || phase3b7xIsCancelled(order)) return false;
+  const orderStatus = phase3b7xUpper(order.order_status);
+  const paymentStatus = phase3b7xUpper(order.payment_status);
+  const shippingStatus = phase3b7xUpper(order.shipping_status);
+  const paymentRowStatus = phase3b7xUpper(payment?.payment_status);
+  const hasProof = Boolean(payment?.proof_url || payment?.proof_storage_path || payment?.proof_uploaded_at);
+
+  if (["SELESAI"].includes(orderStatus)) return false;
+  if (["DITERIMA"].includes(shippingStatus)) return false;
+  if (["DIBAYAR", "MENUNGGU_KONFIRMASI"].includes(paymentStatus)) return false;
+  if (["DIBAYAR", "MENUNGGU_KONFIRMASI"].includes(paymentRowStatus)) return false;
+  if (hasProof) return false;
+
+  return ["", "BELUM_DIBAYAR", "DITOLAK", "MENUNGGU_PEMBAYARAN", "PENDING", "UNPAID"].includes(paymentStatus || "");
+}
+
 function escapeHtml(value: string) {
   return String(value || "").replace(/[&<>"']/g, char => ({
     "&": "&amp;",
@@ -212,6 +279,7 @@ export function BuyerProfilePage({ session, profile, onProfileUpdated }: Props) 
   const [selectedProof, setSelectedProof] = useState<{ url: string; title: string; isImage: boolean } | null>(null);
   const [profileEditMode, setProfileEditMode] = useState(false);
   const [submittingPayment, setSubmittingPayment] = useState(false);
+  const [cancelingOrderId, setCancelingOrderId] = useState("");
   const [paymentForm, setPaymentForm] = useState({
     payer_name: profile?.full_name || "",
     payer_bank: "",
@@ -535,18 +603,73 @@ export function BuyerProfilePage({ session, profile, onProfileUpdated }: Props) 
 
   async function confirmReceived() {
     if (!selectedOrder) return;
-    const ok = confirm("Konfirmasi pesanan sudah diterima?");
+    if (!phase3b8CanConfirmReceived(selectedOrder, selectedShipment)) {
+      setMessage("Pesanan belum dapat dikonfirmasi diterima. Pastikan pembayaran sudah dibayar dan pesanan sudah dikirim/resi tersedia.");
+      return;
+    }
+
+    const ok = confirm("Konfirmasi pesanan sudah diterima? Setelah dikonfirmasi, status pesanan menjadi selesai.");
     if (!ok) return;
 
+    setMessage("Mengonfirmasi pesanan diterima...");
     const { data, error } = await supabase.rpc("buyer_confirm_order_received", { p_order_id: selectedOrder.id });
+
     if (error || (data as any)?.error) {
       setMessage(error?.message || (data as any)?.error || "Gagal mengonfirmasi pesanan diterima.");
       return;
     }
+
     setMessage("Pesanan sudah dikonfirmasi diterima. Terima kasih.");
     await loadOrders();
     await loadOrderDetails(selectedOrder.id);
-    setSelectedOrder(prev => prev ? { ...prev, order_status: "SELESAI", shipping_status: "DITERIMA" } : prev);
+    setSelectedOrder(prev => prev ? {
+      ...prev,
+      order_status: "SELESAI",
+      shipping_status: "DITERIMA",
+      received_at: new Date().toISOString(),
+      completed_at: new Date().toISOString(),
+    } : prev);
+  }
+
+
+
+  async function cancelUnpaidOrder() {
+    if (!selectedOrder) return;
+    const payment = payments.find(row => row.id === selectedPaymentId) || payments[0] || null;
+
+    if (!phase3b7xCanCancelOrder(selectedOrder, payment)) {
+      setMessage("Pesanan tidak dapat dibatalkan karena pembayaran sudah dikirim, dibayar, atau status pesanan sudah tidak memenuhi syarat.");
+      return;
+    }
+
+    const ok = confirm(`Batalkan pesanan ${displayOrderNo(selectedOrder)}? Pesanan akan dipindahkan ke status Dibatalkan dan stok item dikembalikan bila checkout sebelumnya mengurangi stok.`);
+    if (!ok) return;
+
+    setCancelingOrderId(selectedOrder.id);
+    setMessage("Membatalkan pesanan...");
+
+    const { data, error } = await supabase.rpc("buyer_cancel_unpaid_order", {
+      p_order_id: selectedOrder.id,
+      p_reason: "Dibatalkan buyer sebelum pembayaran",
+    });
+
+    setCancelingOrderId("");
+
+    if (error || (data as any)?.error) {
+      setMessage(error?.message || (data as any)?.error || "Gagal membatalkan pesanan.");
+      return;
+    }
+
+    setMessage("Pesanan berhasil dibatalkan. Anda dapat membuat pesanan baru jika ingin merevisi pilihan produk/ekspedisi.");
+    await loadOrders();
+    await loadOrderDetails(selectedOrder.id);
+    setSelectedOrder(prev => prev ? {
+      ...prev,
+      order_status: "DIBATALKAN",
+      payment_status: "DIBATALKAN",
+      shipping_status: "DIBATALKAN",
+      updated_at: new Date().toISOString(),
+    } : prev);
   }
 
   const totalOrderValue = useMemo(() => orders.reduce((sum, order) => sum + Number(order.grand_total || order.total_amount || 0), 0), [orders]);
@@ -706,6 +829,18 @@ export function BuyerProfilePage({ session, profile, onProfileUpdated }: Props) 
                     {selectedShipment?.booking_status && <div><span>Status Biteship</span><strong>{phase3b7vStatusText(selectedShipment.booking_status)}</strong></div>}
                   </div>
 
+                  {phase3b7xIsCancelled(selectedOrder) && (
+                    <div className="phase3b7x-cancelled-notice" data-phase="3b7x-buyer-cancel-order">
+                      Pesanan ini sudah dibatalkan. Jika ingin merevisi pesanan, silakan kembali ke katalog dan buat pesanan baru.
+                    </div>
+                  )}
+
+                  {phase3b8LifecycleNotice(selectedOrder) && (
+                    <div className={phase3b8IsCancelled(selectedOrder) ? "phase3b8-lifecycle-notice danger" : "phase3b8-lifecycle-notice"}>
+                      {phase3b8LifecycleNotice(selectedOrder)}
+                    </div>
+                  )}
+
                   <div className="buyer-order-address-card">
                     <h3>Alamat Pengiriman</h3>
                     <p>{selectedOrder.shipping_address || "-"}</p>
@@ -772,10 +907,20 @@ export function BuyerProfilePage({ session, profile, onProfileUpdated }: Props) 
                     {selectedPayment?.rejection_reason && <div className="error-box">Bukti sebelumnya ditolak: {selectedPayment.rejection_reason}</div>}
 
                     <div className="button-row">
-                      <button className="btn-primary" type="submit" disabled={submittingPayment || selectedOrder.payment_status === "DIBAYAR"}>
-                        {submittingPayment ? "Mengirim..." : selectedOrder.payment_status === "DIBAYAR" ? "Pembayaran Terkonfirmasi" : "Kirim Konfirmasi Pembayaran"}
+                      <button className="btn-primary" type="submit" disabled={submittingPayment || selectedOrder.payment_status === "DIBAYAR" || phase3b7xIsCancelled(selectedOrder)}>
+                        {submittingPayment ? "Mengirim..." : phase3b7xIsCancelled(selectedOrder) ? "Pesanan Dibatalkan" : selectedOrder.payment_status === "DIBAYAR" ? "Pembayaran Terkonfirmasi" : "Kirim Konfirmasi Pembayaran"}
                       </button>
-                      {selectedOrder.shipping_status === "DIKIRIM" && <button type="button" onClick={confirmReceived}>Pesanan Sudah Diterima</button>}
+                      {phase3b8CanConfirmReceived(selectedOrder, selectedShipment) && <button type="button" className="phase3b8-received-btn" onClick={confirmReceived}>Pesanan Sudah Diterima</button>}
+                      {phase3b7xCanCancelOrder(selectedOrder, selectedPayment) && (
+                        <button
+                          type="button"
+                          className="phase3b7x-cancel-order-btn"
+                          disabled={cancelingOrderId === selectedOrder.id}
+                          onClick={cancelUnpaidOrder}
+                        >
+                          {cancelingOrderId === selectedOrder.id ? "Membatalkan..." : "Batal Pesanan"}
+                        </button>
+                      )}
                       <button type="button" onClick={() => setTab("chat")}>Chat Seller</button>
                     </div>
                   </form>

@@ -5,6 +5,56 @@ import { CartItem, cartShippingCost, cartSubtotal, cartWeight } from "../lib/car
 import { formatCurrency } from "../lib/utils";
 import { Profile, ShippingExpedition } from "../types";
 
+// PHASE_3B_8_R3_EXPEDITION_SOURCE_NORMALIZATION_HELPER
+function phase3B8R3HasBiteshipSelectedRate(): boolean {
+  if (typeof window === "undefined" || typeof document === "undefined") return false;
+
+  const readNumber = (value: unknown): number => {
+    if (typeof value === "number" && Number.isFinite(value)) return value;
+    if (typeof value !== "string") return 0;
+    const n = Number(value.replace(/[^0-9.-]/g, ""));
+    return Number.isFinite(n) ? n : 0;
+  };
+
+  const rateKeys = [
+    "phase3b7w_selected_rate",
+    "phase3b7wSelectedRate",
+    "phase3b7w_checkout_selected_rate",
+    "phase3b8r3_selected_rate",
+    "urbanoid_selected_biteship_rate",
+    "selectedBiteshipRate"
+  ];
+
+  for (const key of rateKeys) {
+    try {
+      const raw = window.localStorage.getItem(key);
+      if (!raw) continue;
+      const parsed = JSON.parse(raw);
+      const price = readNumber(parsed?.price ?? parsed?.cost ?? parsed?.shipping_cost ?? parsed?.shippingCost ?? parsed?.rate ?? parsed?.value);
+      const company = String(parsed?.courier_company ?? parsed?.company ?? parsed?.courier ?? "").trim();
+      const type = String(parsed?.courier_type ?? parsed?.type ?? parsed?.service ?? parsed?.service_name ?? "").trim();
+      if (price > 0 && (company || type)) return true;
+    } catch {
+      // ignore invalid localStorage value
+    }
+  }
+
+  const selectedOption = Array.from(document.querySelectorAll("select option:checked"))
+    .map((option) => (option.textContent || "").trim())
+    .find((text) => /Rp\s*[0-9.]+/i.test(text) && /\//.test(text));
+  if (selectedOption) return true;
+
+  const selectedSelect = Array.from(document.querySelectorAll("select"))
+    .find((select) => {
+      const element = select as HTMLSelectElement;
+      const value = String(element.value || "").trim();
+      const text = String(element.selectedOptions?.[0]?.textContent || "").trim();
+      return /Rp\s*[0-9.]+/i.test(text) && (value.length > 0 || /\//.test(text));
+    });
+  return Boolean(selectedSelect);
+}
+
+
 type Props = {
   open: boolean;
   items: CartItem[];
@@ -91,7 +141,7 @@ export function CheckoutModal({
       return;
     }
 
-    if (shippingOptions.length > 0 && !selectedShipping) {
+    if ((!phase3B8R3HasBiteshipSelectedRate()) && (shippingOptions.length > 0 && !selectedShipping)) {
       setMessage("Pilih ekspedisi pengiriman terlebih dahulu.");
       return;
     }
@@ -246,3 +296,6 @@ export function CheckoutModal({
     </div>
   );
 }
+
+
+// PHASE_3B_8_R3_CHECKOUT_VALIDATION_NORMALIZED
