@@ -43,6 +43,7 @@ type Route =
   | "products"
   | "stock"
   | "orders"
+  | "finance"
   | "shipping"
   | "store-profile"
   | "store-chat"
@@ -77,6 +78,7 @@ function getRoute(): Route {
     "products",
     "stock",
     "orders",
+    "finance",
     "shipping",
     "store-profile",
     "store-chat",
@@ -125,7 +127,7 @@ export function Layout({ children, session, profile }: Props) {
 
   const isStaff = isStaffProfile(profile);
   const isAdmin = isAdminProfile(profile);
-  const sellerRoutes = ["seller", "products", "stock", "master", "orders", "shipping", "store-profile", "store-chat", "users"];
+  const sellerRoutes = ["seller", "products", "stock", "master", "orders", "finance", "shipping", "store-profile", "store-chat", "users"];
   const showSellerSidebar = Boolean(session && isStaff && sellerRoutes.includes(route));
   const showBuyerHeader = !showSellerSidebar && route !== "seller-login";
   const isBuyerSurfaceRoute = route === "buyer" || route === "buyer-profile" || route === "buyer-addresses";
@@ -452,6 +454,11 @@ export function Layout({ children, session, profile }: Props) {
                 <span>Pesanan</span>
               </a>
 
+            <a className={route === "finance" ? "active" : ""} href="#/finance">
+              <ClipboardList size={16} />
+              <span>Keuangan</span>
+            </a>
+
               <button
                 type="button"
                 className={`sidebar-parent sidebar-chat-parent nav-badge-wrap ${route === "store-chat" ? "active" : ""}`}
@@ -529,6 +536,7 @@ export function Layout({ children, session, profile }: Props) {
     </div>
   );
 }
+
 
 
 

@@ -32,6 +32,7 @@ type VariantRow = {
   stock_qty: number;
   stock_min: number;
   base_price: number;
+  hpp_cost: number;
   discount_type: "NONE" | "PERCENT" | "AMOUNT";
   discount_value: number;
   discount_start: string | null;
@@ -100,6 +101,7 @@ const emptyVariant = {
   stock_qty: 0,
   stock_min: 0,
   base_price: 0,
+  hpp_cost: 0,
   discount_type: "NONE" as "NONE" | "PERCENT" | "AMOUNT",
   discount_value: 0,
   discount_start: "",
@@ -323,6 +325,7 @@ export function ProductMatrixPage() {
         stock_qty,
         stock_min,
         base_price,
+        hpp_cost,
         discount_type,
         discount_value,
         discount_start,
@@ -522,7 +525,8 @@ export function ProductMatrixPage() {
         stock_qty: variant.stock_qty || 0,
         stock_min: variant.stock_min || 0,
         base_price: variant.base_price || 0,
-        discount_type: variant.discount_type || "NONE",
+      hpp_cost: variant.hpp_cost || 0,
+      discount_type: variant.discount_type || "NONE",
         discount_value: variant.discount_value || 0,
         discount_start: variant.discount_start || "",
         discount_end: variant.discount_end || "",
@@ -628,6 +632,7 @@ export function ProductMatrixPage() {
       stock_qty: Math.max(0, numberOrZero(form.stock_qty)),
       stock_min: Math.max(0, numberOrZero(form.stock_min)),
       base_price: Math.max(0, numberOrZero(form.base_price)),
+      hpp_cost: Math.max(0, numberOrZero(form.hpp_cost)),
       discount_type: form.discount_type || "NONE",
       discount_value: Math.max(0, numberOrZero(form.discount_value)),
       discount_start: form.discount_start || null,
@@ -1155,10 +1160,10 @@ async function uploadColorImages(
                 className={`showcase-accordion-head ${isShowcaseOpen ? "open" : ""}`}
                 onClick={() => setShowcaseExpanded(prev => ({ ...prev, [group.key]: !isShowcaseOpen }))}
               >
-                <span className="showcase-accordion-icon">{isShowcaseOpen ? "−" : "+"}</span>
+                <span className="showcase-accordion-icon">{isShowcaseOpen ? "-" : "+"}</span>
                 <span>
                   <strong>Etalase: {group.name}</strong>
-                  <small>{group.products.length} produk · {group.totalVariants} varian · stok {group.totalStock}</small>
+                  <small>{group.products.length} produk  -  {group.totalVariants} varian  -  stok {group.totalStock}</small>
                 </span>
               </button>
 
@@ -1173,7 +1178,7 @@ async function uploadColorImages(
             <div className="matrix-item product-matrix-item" key={product.id}>
               <div className={`matrix-parent matrix-parent-crud listing-accordion-parent ${isOpen ? "open" : ""}`}>
                 <button className="collapse-button listing-collapse-button" onClick={() => setExpanded(prev => ({ ...prev, [product.id]: !isOpen }))}>
-                  {isOpen ? "−" : "+"}
+                  {isOpen ? "-" : "+"}
                 </button>
 
                 <div className="parent-main listing-title-cell">
@@ -1187,7 +1192,7 @@ async function uploadColorImages(
                 <div><small>Model</small><span>{modelName(product.product_models)}</span></div>
                 <div><small>Bahan</small><span>{relName(product.materials)}</span></div>
                 <div><small>Gramasi</small><span>{product.gramasi || "-"}</span></div>
-                <div><small>Ringkasan</small><span>{list.length} varian · stok {stock}</span></div>
+                <div><small>Ringkasan</small><span>{list.length} varian  -  stok {stock}</span></div>
                 <div><small>Harga</small><span>{list.length ? `${formatCurrency(minPrice)} - ${formatCurrency(maxPrice)}` : "-"}</span></div>
                 <div><small>Status</small><span className={`status-pill ${product.status === "AKTIF" ? "active" : ""}`}>{product.status}</span></div>
 
@@ -1204,7 +1209,7 @@ async function uploadColorImages(
                   <div className="variant-head">
                     <div>
                       <h3>Transaksi Varian</h3>
-                      <p>Foto, warna, ukuran, stok, harga, diskon, periode diskon, SKU, berat, dimensi, dan status per varian.</p>
+                      <p>Foto, warna, ukuran, stok, HPP, harga, diskon, periode diskon, SKU, berat, dimensi, dan status per varian.</p>
                     </div>
                     <button className="btn-primary" onClick={() => openAddVariant(product)}>+ Tambah Varian</button>
                   </div>
@@ -1270,7 +1275,7 @@ async function uploadColorImages(
                                           onClick={() => deleteColorImage(product, group.colorId, group.colorName, img)}
                                           title={`Hapus foto ${imgIndex + 1}`}
                                         >
-                                          ×
+                                           x 
                                         </button>
                                       </div>
                                     ))}
@@ -1328,7 +1333,7 @@ async function uploadColorImages(
                             <div className="collapsed-photo-control">
                               <div className="photo-hidden-icon">Foto</div>
                               <strong>Foto disembunyikan</strong>
-                              <small>{colorImages.length}/5 foto{colorVideo ? " · 1 video" : ""}</small>
+                              <small>{colorImages.length}/5 foto{colorVideo ? "  -  1 video" : ""}</small>
                               <button
                                 type="button"
                                 className="photo-collapse-button"
@@ -1351,10 +1356,10 @@ async function uploadColorImages(
                                   </div>
                                 </td>
                                 <td colSpan={8} className="variant-group-summary">
-                                  <strong>{group.items.length} ukuran · stok {groupStock}</strong>
+                                  <strong>{group.items.length} ukuran  -  stok {groupStock}</strong>
                                   <small>Ukuran/Pola: {groupSizes || "-"}</small>
                                   <small>Harga: {group.items.length ? `${formatCurrency(groupMinPrice)} - ${formatCurrency(groupMaxPrice)}` : "-"}</small>
-                                  <small>Media: {colorImages.length}/5 foto{colorVideo ? " · 1 video" : ""}</small>
+                                  <small>Media: {colorImages.length}/5 foto{colorVideo ? "  -  1 video" : ""}</small>
                                 </td>
                                 <td>
                                   <span className={`status-pill ${groupActive ? "active" : ""}`}>
@@ -1389,7 +1394,7 @@ async function uploadColorImages(
                               <td><strong>{formatCurrency(finalPrice(v))}</strong></td>
                               <td>{v.sku_variant}</td>
                               <td>{v.weight_gram} gr</td>
-                              <td>{v.package_length_cm || 0} × {v.package_width_cm || 0} × {v.package_height_cm || 0}</td>
+                              <td>{v.package_length_cm || 0}  x  {v.package_width_cm || 0}  x  {v.package_height_cm || 0}</td>
                               <td><span className={`status-pill ${v.status === "AKTIF" ? "active" : ""}`}>{v.status}</span></td>
                               <td className="action-stack">
                                 <button onClick={() => openEditVariant(product, v)}>Edit</button>
@@ -1470,7 +1475,7 @@ async function uploadColorImages(
                 }}
                 aria-label="Tutup pesan"
               >
-                ×
+                 x 
               </button>
             )}
           </div>
@@ -1520,7 +1525,7 @@ function ProductModal({
             <h2>{data.id ? "Edit Produk Induk" : "Tambah Produk Induk"}</h2>
             <p>Isi data utama produk. Varian warna/ukuran dibuat setelah produk induk tersimpan.</p>
           </div>
-          <button onClick={onClose}>×</button>
+          <button onClick={onClose}> x </button>
         </div>
 
         <div className="form-grid">
@@ -1637,7 +1642,7 @@ function VariantModal({
             <h2>{data.id ? "Edit Varian Produk" : "Tambah Varian Produk"}</h2>
             <p>{product?.product_name || "Produk"}</p>
           </div>
-          <button onClick={onClose}>×</button>
+          <button onClick={onClose}> x </button>
         </div>
 
         <div className="form-grid">
@@ -1685,6 +1690,16 @@ function VariantModal({
             Harga Default
             <input type="number" value={data.base_price} onChange={e => setField("base_price", e.target.value)} />
           </label>
+              <label>
+                HPP / Unit
+                <input
+                  type="number"
+                  min={0}
+                  value={data.hpp_cost}
+                  onChange={e => setField("hpp_cost", e.target.value)}
+                  placeholder="Biaya produksi per unit"
+                />
+              </label>
           <label>
             Tipe Diskon
             <select value={data.discount_type} onChange={e => setField("discount_type", e.target.value)}>
@@ -1735,3 +1750,4 @@ function VariantModal({
     </div>
   );
 }
+

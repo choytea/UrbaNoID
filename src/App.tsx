@@ -12,6 +12,7 @@ import SellerLoginPage from "./pages/SellerLoginPage";
 import MasterDataPage from "./pages/MasterDataPage";
 import { ProductMatrixPage } from "./pages/ProductMatrixPage";
 import OrdersPage from "./pages/OrdersPage";
+import FinancePage from "./pages/FinancePage";
 import ShippingPage from "./pages/ShippingPage";
 import StockPage from "./pages/StockPage";
 import StoreProfilePage from "./pages/StoreProfilePage";
@@ -30,13 +31,14 @@ type Route =
   | "products"
   | "stock"
   | "orders"
+  | "finance"
   | "shipping"
   | "store-profile"
   | "store-chat"
   | "users"
   | "login";
 
-const STAFF_ROUTES: Route[] = ["seller", "master", "products", "stock", "orders", "shipping", "store-profile", "store-chat"];
+const STAFF_ROUTES: Route[] = ["seller", "master", "products", "stock", "orders", "finance", "shipping", "store-profile", "store-chat"];
 const ADMIN_ROUTES: Route[] = ["users"];
 const AUTH_BUYER_ROUTES: Route[] = ["buyer-profile", "buyer-addresses"];
 
@@ -54,6 +56,7 @@ function getRoute(): Route {
     "products",
     "stock",
     "orders",
+    "finance",
     "shipping",
     "store-profile",
     "store-chat",
@@ -258,6 +261,7 @@ export default function App() {
       {route === "products" && <ProductMatrixPage />}
         {route === "stock" && <StockPage />}
       {route === "orders" && <OrdersPage />}
+        {route === "finance" && <FinancePage />}
       {route === "shipping" && <ShippingPage />}
       {route === "store-profile" && <StoreProfilePage />}
       {route === "store-chat" && <StoreChatAdminPage />}
@@ -268,6 +272,7 @@ export default function App() {
     </Layout>
   );
 }
+
 
 
 
