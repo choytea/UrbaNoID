@@ -8802,4 +8802,75 @@ select[data-phase3b7w-r13-select-only='true'] {
     grid-column: 2 / -1;
   }
 }
-/* sync localhost stable phase 3b9 */
+
+/* Phase 3B.9B-3D Biteship Sync Polish */
+.phase3b9b3d-finance-page .finance-biteship-table {
+  min-width: 1180px;
+}
+
+.finance-biteship-status {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  padding: 5px 9px;
+  font-weight: 900;
+  font-size: 0.78rem;
+  background: #e2e8f0;
+  color: #334155;
+  white-space: nowrap;
+}
+
+.finance-biteship-status.active {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.finance-biteship-status.success {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.finance-biteship-status.danger {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.finance-biteship-status.neutral,
+.finance-biteship-status.unknown {
+  background: #e2e8f0;
+  color: #334155;
+}
+
+.finance-biteship-error {
+  display: inline-block;
+  max-width: 180px;
+  color: #991b1b;
+  font-weight: 900;
+  line-height: 1.35;
+}
+
+.finance-sync-btn {
+  border: 1px solid rgba(15, 23, 42, 0.14);
+  border-radius: 12px;
+  padding: 8px 10px;
+  background: #ffffff;
+  color: #0f172a;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.finance-sync-btn:hover:not(:disabled) {
+  background: #f8fafc;
+  border-color: rgba(15, 23, 42, 0.28);
+}
+
+.finance-sync-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.finance-biteship-active-note {
+  background: #ecfdf5;
+  color: #166534;
+}

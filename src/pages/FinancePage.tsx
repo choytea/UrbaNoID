@@ -48,6 +48,22 @@ function formatDate(value: unknown): string {
   }).format(date);
 }
 
+function formatDateTime(value: unknown): string {
+  const raw = asText(value);
+  if (!raw) return "-";
+
+  const date = new Date(raw);
+  if (Number.isNaN(date.getTime())) return raw;
+
+  return new Intl.DateTimeFormat("id-ID", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date);
+}
+
 function firstValue(row: AnyRow | null | undefined, keys: string[]): any {
   if (!row) return null;
 
@@ -167,12 +183,48 @@ function shippingPaidOf(order: AnyRow, shipment: AnyRow | null): number {
   ]) || numberFrom(shipment, ["shipping_cost"]);
 }
 
+function biteshipShipmentFeeOf(shipment: AnyRow | null): number {
+  if (!shipment) return 0;
+
+  const direct = numberFrom(shipment, ["biteship_shipment_fee"]);
+  if (direct > 0) return direct;
+
+  const json = tryJson(firstValue(shipment, [
+    "biteship_order_detail_json",
+    "provider_response_json",
+    "tracking_response_json",
+  ]));
+
+  return deepNumber(json, ["courier", "shipment_fee"]);
+}
+
+function biteshipInsuranceFeeOf(shipment: AnyRow | null): number {
+  if (!shipment) return 0;
+
+  const direct = numberFrom(shipment, ["biteship_insurance_fee"]);
+  if (direct > 0) return direct;
+
+  const json = tryJson(firstValue(shipment, [
+    "biteship_order_detail_json",
+    "provider_response_json",
+    "tracking_response_json",
+  ]));
+
+  return deepNumber(json, ["courier", "insurance", "fee"]);
+}
+
 function actualShippingOf(shipment: AnyRow | null): number {
   if (!shipment) return 0;
 
+  const syncedShipmentFee = biteshipShipmentFeeOf(shipment);
+  const syncedInsuranceFee = biteshipInsuranceFeeOf(shipment);
+
+  if (syncedShipmentFee > 0 || syncedInsuranceFee > 0) {
+    return syncedShipmentFee + syncedInsuranceFee;
+  }
+
   const direct = numberFrom(shipment, [
     "actual_shipping_cost",
-    "biteship_courier_shipment_fee",
     "provider_shipping_fee",
     "shipping_actual_cost",
     "shipping_cost",
@@ -186,8 +238,14 @@ function actualShippingOf(shipment: AnyRow | null): number {
     "tracking_response_json",
   ]));
 
+  const jsonShipmentFee = deepNumber(json, ["courier", "shipment_fee"]);
+  const jsonInsuranceFee = deepNumber(json, ["courier", "insurance", "fee"]);
+
+  if (jsonShipmentFee > 0 || jsonInsuranceFee > 0) {
+    return jsonShipmentFee + jsonInsuranceFee;
+  }
+
   return (
-    deepNumber(json, ["courier", "shipment_fee"]) ||
     deepNumber(json, ["courier", "price"]) ||
     deepNumber(json, ["price"])
   );
@@ -240,7 +298,6 @@ function itemRevenueOf(item: AnyRow): number {
   return qty * price;
 }
 
-
 function itemVariantId(row: AnyRow): string {
   return asText(firstValue(row, [
     "variant_id",
@@ -282,6 +339,19 @@ function variantHppOf(item: AnyRow, variantMap: Map<string, AnyRow>, skuMap: Map
 
   return 0;
 }
+
+function biteshipStatusClass(status: unknown): string {
+  const text = upper(status);
+
+  if (!text) return "unknown";
+  if (text.includes("CANCEL") || text.includes("BATAL")) return "danger";
+  if (text.includes("FAILED") || text.includes("ERROR")) return "danger";
+  if (text.includes("DELIVERED") || text.includes("DONE") || text.includes("COMPLETED")) return "success";
+  if (text.includes("CONFIRMED") || text.includes("ALLOCATED") || text.includes("PICKED") || text.includes("SHIP")) return "active";
+
+  return "neutral";
+}
+
 export default function FinancePage() {
   const [orders, setOrders] = useState<AnyRow[]>([]);
   const [shipments, setShipments] = useState<AnyRow[]>([]);
@@ -289,6 +359,7 @@ export default function FinancePage() {
   const [variants, setVariants] = useState<AnyRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState<PeriodKey>("30");
+  const [syncingBiteshipId, setSyncingBiteshipId] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
@@ -343,6 +414,48 @@ export default function FinancePage() {
     loadFinanceData();
   }, []);
 
+  async function syncBiteshipOrderDetail(row: {
+    shipment_id?: string;
+    provider_order_id?: string;
+    order_id?: string;
+  }) {
+    const shipmentId = String(row.shipment_id || "").trim();
+    const providerOrderId = String(row.provider_order_id || "").trim();
+
+    if (!shipmentId && !providerOrderId) {
+      setError("Shipment ini belum memiliki provider_order_id Biteship.");
+      return;
+    }
+
+    setSyncingBiteshipId(shipmentId || providerOrderId);
+    setError("");
+    setMessage("");
+
+    const { data, error: invokeError } = await supabase.functions.invoke("shipping-order-detail", {
+      body: {
+        shipment_id: shipmentId || undefined,
+        provider_order_id: providerOrderId || undefined,
+      },
+    });
+
+    if (invokeError) {
+      setError(invokeError.message);
+      setSyncingBiteshipId("");
+      return;
+    }
+
+    if (!data?.success) {
+      setError(data?.message || "Sync detail Biteship gagal.");
+      setSyncingBiteshipId("");
+      await loadFinanceData();
+      return;
+    }
+
+    setMessage(data?.message || "Detail Biteship berhasil disinkronkan.");
+    setSyncingBiteshipId("");
+    await loadFinanceData();
+  }
+
   const shipmentMap = useMemo(() => {
     const map = new Map<string, AnyRow>();
 
@@ -353,6 +466,7 @@ export default function FinancePage() {
 
     return map;
   }, [shipments]);
+
   const variantMap = useMemo(() => {
     return new Map(variants.map(row => [asText(row.id), row]).filter(([key]) => Boolean(key)));
   }, [variants]);
@@ -446,7 +560,6 @@ export default function FinancePage() {
   }, [filteredOrders, paidOrders.length, shipmentMap, hppTotal]);
 
   const bestSellers = useMemo(() => {
-    const paidIds = new Set(paidOrders.map(orderId).filter(Boolean));
     const map = new Map<string, { name: string; variant: string; qty: number; revenue: number; hpp: number; profit: number; margin: number }>();
 
     orderItems.forEach(item => {
@@ -497,16 +610,21 @@ export default function FinancePage() {
   const biteshipRows = useMemo(() => {
     return shipments
       .map(shipment => ({
+        shipment_id: textFrom(shipment, ["id"]),
         order_id: shipmentOrderId(shipment),
         provider_order_id: textFrom(shipment, ["provider_order_id", "biteship_order_id"]),
-        tracking_number: textFrom(shipment, ["tracking_number", "provider_tracking_id", "waybill_id"]),
-        courier: textFrom(shipment, ["courier_name", "courier_code", "expedition_name", "provider_name"]),
-        status: textFrom(shipment, ["booking_status", "tracking_status", "shipping_status"]),
+        tracking_number: textFrom(shipment, ["biteship_waybill_id", "tracking_number", "provider_tracking_id", "waybill_id"]),
+        tracking_link: textFrom(shipment, ["biteship_tracking_link", "tracking_url"]),
+        courier: textFrom(shipment, ["biteship_courier_company", "courier_name", "courier_code", "expedition_name", "provider_name"]),
+        status: textFrom(shipment, ["biteship_status", "booking_status", "tracking_status", "shipping_status"]),
         shipping_cost: numberFrom(shipment, ["shipping_cost"]),
+        shipment_fee: biteshipShipmentFeeOf(shipment),
+        insurance_fee: biteshipInsuranceFeeOf(shipment),
         actual_shipping_cost: actualShippingOf(shipment),
-        checked_at: firstValue(shipment, ["tracking_checked_at", "booking_created_at", "updated_at"]),
+        synced_at: firstValue(shipment, ["biteship_order_detail_synced_at", "tracking_checked_at", "updated_at"]),
+        last_error: textFrom(shipment, ["biteship_last_error"]),
       }))
-      .filter(row => row.provider_order_id || row.tracking_number || row.actual_shipping_cost > 0)
+      .filter(row => row.provider_order_id || row.tracking_number || row.actual_shipping_cost > 0 || row.last_error || row.synced_at)
       .slice(0, 12);
   }, [shipments]);
 
@@ -551,7 +669,7 @@ export default function FinancePage() {
   }
 
   return (
-    <section className="finance-page phase3b9b1-finance-page">
+    <section className="finance-page phase3b9b1-finance-page phase3b9b3d-finance-page">
       <div className="page-header finance-page-header">
         <div>
           <p className="eyebrow">Seller</p>
@@ -697,11 +815,11 @@ export default function FinancePage() {
       <section className="finance-card">
         <div className="finance-card-head">
           <h2>Ongkir & Biteship</h2>
-          <small>Disiapkan untuk sinkron GET /v1/orders/:id pada fase berikutnya</small>
+          <small>Sync aktif via Edge Function shipping-order-detail</small>
         </div>
 
         <div className="finance-table-wrap">
-          <table className="finance-table">
+          <table className="finance-table finance-biteship-table">
             <thead>
               <tr>
                 <th>Order</th>
@@ -710,34 +828,72 @@ export default function FinancePage() {
                 <th>Kurir</th>
                 <th>Status</th>
                 <th>Ongkir Buyer</th>
+                <th>Shipment Fee</th>
+                <th>Asuransi</th>
                 <th>Ongkir Aktual</th>
+                <th>Last Sync</th>
+                <th>Error</th>
+                <th>Sync</th>
               </tr>
             </thead>
             <tbody>
               {biteshipRows.length === 0 && (
-                <tr><td colSpan={7}>Belum ada data Biteship/Shipment yang dapat ditampilkan.</td></tr>
+                <tr><td colSpan={12}>Belum ada data Biteship/Shipment yang dapat ditampilkan.</td></tr>
               )}
 
               {biteshipRows.map((row, index) => (
                 <tr key={`${row.order_id}-${index}`}>
                   <td>{row.order_id || "-"}</td>
                   <td>{row.provider_order_id || "-"}</td>
-                  <td>{row.tracking_number || "-"}</td>
+                  <td>
+                    {row.tracking_link ? (
+                      <a href={row.tracking_link} target="_blank" rel="noreferrer">
+                        {row.tracking_number || "Tracking"}
+                      </a>
+                    ) : (
+                      row.tracking_number || "-"
+                    )}
+                  </td>
                   <td>{row.courier || "-"}</td>
-                  <td>{row.status || "-"}</td>
+                  <td>
+                    <span className={`finance-biteship-status ${biteshipStatusClass(row.status)}`}>
+                      {row.status || "-"}
+                    </span>
+                  </td>
                   <td>{formatCurrency(row.shipping_cost)}</td>
+                  <td>{formatCurrency(row.shipment_fee)}</td>
+                  <td>{formatCurrency(row.insurance_fee)}</td>
                   <td><strong>{formatCurrency(row.actual_shipping_cost)}</strong></td>
+                  <td>{formatDateTime(row.synced_at)}</td>
+                  <td>
+                    {row.last_error ? (
+                      <span className="finance-biteship-error" title={row.last_error}>
+                        {row.last_error.length > 42 ? `${row.last_error.slice(0, 42)}...` : row.last_error}
+                      </span>
+                    ) : (
+                      "-"
+                    )}
+                  </td>
+                  <td>
+                    <button
+                      type="button"
+                      className="finance-sync-btn"
+                      onClick={() => syncBiteshipOrderDetail(row)}
+                      disabled={!row.provider_order_id || syncingBiteshipId === (row.shipment_id || row.provider_order_id)}
+                    >
+                      {syncingBiteshipId === (row.shipment_id || row.provider_order_id) ? "Sync..." : "Sync Detail"}
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
 
-        <div className="finance-biteship-plan">
-          <strong>Rencana sinkron Biteship:</strong> endpoint GET /v1/orders/:id akan dipanggil dari Supabase Edge Function agar API key tetap aman. Data yang relevan untuk keuangan: courier.shipment_fee, courier.insurance.fee, status, history, price, dan destination.postal_code.
+        <div className="finance-biteship-plan finance-biteship-active-note">
+          <strong>Sync Biteship aktif:</strong> tombol Sync Detail memanggil Supabase Edge Function shipping-order-detail, lalu menyimpan status, waybill, shipment fee, insurance fee, dan raw response GET /v1/orders/:id ke tabel shipments.
         </div>
       </section>
     </section>
   );
 }
-
