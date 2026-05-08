@@ -1,389 +1,337 @@
-// Phase 3B.8-R2 — Biteship Order Retrieve Mapping Polish
-// Phase 3B.8-R2-R1 syntax hotfix: remove escaped template literals for Deno deploy
-// Supabase Edge Function: shipping-track
-//
-// Tujuan:
-// - Memperkuat Cek Tracking dengan fallback GET /v1/orders/:id.
-// - Membaca response order Biteship testing/production secara lengkap:
-//   response.status, courier.tracking_id, courier.waybill_id, courier.link,
-//   courier.history, courier.shipment_fee, price.
-// - Menyimpan hasil ke public.shipments tanpa menaruh API key di frontend.
-
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const PHASE = "3B.8-R2";
-const BITESHIP_BASE_URL = "https://api.biteship.com";
+const PHASE = "3B.10B-R2";
 
-const corsHeaders: Record<string, string> = {
+const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
-  "Content-Type": "application/json",
 };
 
-function jsonResponse(payload: unknown, status = 200): Response {
-  return new Response(JSON.stringify(payload, null, 2), {
+type AnyRecord = Record<string, any>;
+
+function jsonResponse(payload: AnyRecord, status = 200): Response {
+  return new Response(JSON.stringify({ phase: PHASE, ...payload }, null, 2), {
     status,
-    headers: corsHeaders,
+    headers: {
+      ...corsHeaders,
+      "Content-Type": "application/json",
+    },
   });
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
+function cleanText(value: unknown): string {
+  if (value === null || value === undefined) return "";
+  return String(value).trim();
 }
 
-function asString(value: unknown): string | null {
-  if (value === null || value === undefined) return null;
-  const text = String(value).trim();
-  return text ? text : null;
-}
-
-function asNumber(value: unknown): number | null {
-  if (value === null || value === undefined || value === "") return null;
-  const n = Number(value);
-  return Number.isFinite(n) ? n : null;
-}
-
-function firstString(...values: unknown[]): string | null {
+function firstNonEmpty(values: unknown[]): string {
   for (const value of values) {
-    const text = asString(value);
+    const text = cleanText(value);
     if (text) return text;
   }
-  return null;
+  return "";
 }
 
-function firstNumber(...values: unknown[]): number | null {
-  for (const value of values) {
-    const n = asNumber(value);
-    if (n !== null) return n;
+function isCourierPlaceholder(value: unknown): boolean {
+  const text = cleanText(value).toLowerCase();
+
+  if (!text) return true;
+
+  return [
+    "biteship",
+    "bitship",
+    "manual",
+    "kurir",
+    "ekspedisi",
+    "courier",
+    "shipping",
+    "pengiriman",
+    "-",
+    "null",
+    "undefined",
+  ].includes(text);
+}
+
+function normalizeCourierCode10B(input: unknown): string {
+  let text = cleanText(input).toLowerCase();
+
+  if (!text || isCourierPlaceholder(text)) return "";
+
+  text = text
+    .replace(/\u00a0/g, " ")
+    .replace(/\s+/g, " ")
+    .replace(/courier/g, "")
+    .replace(/ekspedisi/g, "")
+    .replace(/pengiriman/g, "")
+    .trim();
+
+  const beforeSlash = text.split("/")[0]?.trim();
+  if (beforeSlash) text = beforeSlash;
+
+  const aliasRules: Array<[RegExp, string]> = [
+    [/j\s*&\s*t|jnt|jnt express|j\&t|jet express|jet/, "jnt"],
+    [/\bjne\b|jalur nugraha ekakurir/, "jne"],
+    [/\btiki\b|titipan kilat/, "tiki"],
+    [/sicepat|si cepat/, "sicepat"],
+    [/anteraja|anter aja/, "anteraja"],
+    [/ninja/, "ninja"],
+    [/lion/, "lion"],
+    [/id\s*express|idexpress/, "idexpress"],
+    [/\bpos\b|pos indonesia/, "pos"],
+    [/wahana/, "wahana"],
+    [/\bsap\b|sap express/, "sap"],
+    [/paxel/, "paxel"],
+    [/gojek|gosend|go-send/, "gojek"],
+    [/grab|grabexpress|grab express/, "grab"],
+    [/deliveree/, "deliveree"],
+    [/\brpx\b/, "rpx"],
+    [/\bjdl\b|jd\.?id/, "jdl"],
+    [/shopee|spx|shopee express/, "spx"],
+    [/indah/, "indah"],
+  ];
+
+  for (const [regex, code] of aliasRules) {
+    if (regex.test(text)) return code;
   }
-  return null;
+
+  text = text
+    .replace(/\b(reguler|regular|reg|economy|ekonomi|cargo|instant|same day|sameday|next day|nextday|express|hemat|standard|standar)\b/g, "")
+    .replace(/[^a-z0-9]/g, "")
+    .trim();
+
+  if (isCourierPlaceholder(text)) return "";
+
+  return text;
 }
 
-function getPath(obj: unknown, path: Array<string | number>): unknown {
-  let current: unknown = obj;
-  for (const key of path) {
-    if (Array.isArray(current) && typeof key === "number") {
-      current = current[key];
-      continue;
-    }
-    if (isRecord(current) && typeof key === "string") {
-      current = current[key];
-      continue;
-    }
-    return undefined;
+function collectStringsDeep(value: any, output: string[] = [], depth = 0): string[] {
+  if (depth > 5 || value === null || value === undefined) return output;
+
+  if (typeof value === "string" || typeof value === "number") {
+    const text = cleanText(value);
+    if (text) output.push(text);
+    return output;
   }
-  return current;
-}
 
-function getArray(value: unknown): unknown[] {
-  return Array.isArray(value) ? value : [];
-}
+  if (Array.isArray(value)) {
+    for (const item of value) collectStringsDeep(item, output, depth + 1);
+    return output;
+  }
 
-function lastStatusFromHistory(history: unknown): string | null {
-  const arr = getArray(history);
-  if (!arr.length) return null;
-  for (let i = arr.length - 1; i >= 0; i -= 1) {
-    const item = arr[i];
-    if (isRecord(item)) {
-      const status = firstString(item.status, item.status_code, item.event);
-      if (status) return status;
+  if (typeof value === "object") {
+    for (const key of Object.keys(value)) {
+      collectStringsDeep(value[key], output, depth + 1);
     }
   }
-  return null;
+
+  return output;
 }
 
-function normalizeBiteshipStatus(status: string | null, hasOrderId: boolean): string {
-  const raw = (status || "").trim();
-  if (!raw && hasOrderId) return "BITESHIP_BOOKED";
-  if (!raw) return "BITESHIP_UNKNOWN";
-  const clean = raw
-    .replace(/([a-z])([A-Z])/g, "$1_$2")
-    .replace(/[\s-]+/g, "_")
-    .replace(/[^A-Za-z0-9_]/g, "")
-    .toUpperCase();
-  return clean.startsWith("BITESHIP_") ? clean : "BITESHIP_" + clean;
+function extractCourierCandidates10B(body: AnyRecord): string[] {
+  const direct = [
+    body.courier_code,
+    body.courier,
+    body.courier_company,
+    body.courier_name,
+    body.shipping_courier,
+    body.shipping_provider,
+    body.shipping_service,
+    body.expedition,
+    body.expedition_code,
+    body.expedition_name,
+    body.service,
+    body.service_type,
+    body.shipment?.courier_code,
+    body.shipment?.courier,
+    body.shipment?.courier_company,
+    body.shipment?.courier_name,
+    body.shipment?.shipping_courier,
+    body.shipment?.shipping_provider,
+    body.shipment?.shipping_service,
+    body.shipment?.expedition,
+    body.shipment?.expedition_name,
+    body.shipment?.service,
+    body.shipment?.service_type,
+    body.order?.courier_code,
+    body.order?.courier,
+    body.order?.courier_company,
+    body.order?.courier_name,
+    body.order?.shipping_courier,
+    body.order?.shipping_provider,
+    body.order?.shipping_service,
+    body.order?.expedition,
+    body.order?.expedition_name,
+    body.order?.service,
+    body.order?.service_type,
+    body.order?.courier?.code,
+    body.order?.courier?.company,
+    body.order?.courier?.name,
+  ].map(cleanText).filter(Boolean);
+
+  const deep = collectStringsDeep(body).filter((text) =>
+    /jne|tiki|j\s*&\s*t|jnt|sicepat|anteraja|ninja|lion|pos indonesia|wahana|sap|paxel|gosend|gojek|grab|id express|idexpress|spx|shopee express/i.test(text)
+  );
+
+  return [...direct, ...deep];
 }
 
-function mapShippingStatus(rawStatus: string | null): string | null {
-  const status = (rawStatus || "").toLowerCase();
-  if (!status) return null;
-  if (/(cancel|failed|return|returned)/.test(status)) return "DIBATALKAN";
-  if (/(delivered|completed|done|finished|received)/.test(status)) return "DITERIMA";
-  if (/(drop|dropping|transit|in_transit|on_delivery|deliver|picked|pickup|picked_up|otw)/.test(status)) return "DIKIRIM";
-  if (/(confirmed|allocated|booked|booking|created|scheduled|pending|process)/.test(status)) return "DIKEMAS";
-  return null;
-}
+function bestCourierCode10B(body: AnyRecord): { input: string; code: string; candidates: string[] } {
+  const candidates = extractCourierCandidates10B(body);
 
-function pickPayloadRoot(payload: unknown): unknown {
-  // Biteship response sering root object langsung.
-  // Beberapa endpoint bisa mengembalikan data/object nested.
-  if (!isRecord(payload)) return payload;
-  if (isRecord(payload.data)) return payload.data;
-  if (isRecord(payload.order)) return payload.order;
-  return payload;
-}
-
-type NormalizedTracking = {
-  providerOrderId: string | null;
-  providerTrackingId: string | null;
-  trackingNumber: string | null;
-  trackingUrl: string | null;
-  courierCompany: string | null;
-  courierType: string | null;
-  rawStatus: string | null;
-  bookingStatus: string;
-  shippingStatus: string | null;
-  actualShippingCost: number | null;
-  biteshipTotalPrice: number | null;
-  history: unknown[];
-  response: unknown;
-};
-
-function normalizeBiteshipResponse(payload: unknown, previous: Record<string, unknown>): NormalizedTracking {
-  const root = pickPayloadRoot(payload);
-  const courier = getPath(root, ["courier"]);
-  const courierObj = isRecord(courier) ? courier : {};
-  const history = getArray(courierObj.history).length
-    ? getArray(courierObj.history)
-    : getArray(getPath(root, ["history"]));
-
-  const rawStatus = firstString(
-    getPath(root, ["status"]),
-    getPath(root, ["order_status"]),
-    getPath(root, ["delivery", "status"]),
-    getPath(courierObj, ["status"]),
-    lastStatusFromHistory(history),
-    previous.tracking_status,
-    previous.booking_status,
-  );
-
-  const providerOrderId = firstString(
-    getPath(root, ["id"]),
-    getPath(root, ["order_id"]),
-    getPath(root, ["biteship_order_id"]),
-    previous.provider_order_id,
-  );
-
-  const providerTrackingId = firstString(
-    getPath(courierObj, ["tracking_id"]),
-    getPath(root, ["tracking_id"]),
-    getPath(root, ["courier_tracking_id"]),
-    previous.provider_tracking_id,
-  );
-
-  const trackingNumber = firstString(
-    getPath(courierObj, ["waybill_id"]),
-    getPath(courierObj, ["waybill"]),
-    getPath(courierObj, ["tracking_number"]),
-    getPath(root, ["waybill_id"]),
-    getPath(root, ["waybill"]),
-    getPath(root, ["tracking_number"]),
-    previous.tracking_number,
-  );
-
-  const trackingUrl = firstString(
-    getPath(courierObj, ["link"]),
-    getPath(courierObj, ["tracking_link"]),
-    getPath(root, ["tracking_url"]),
-    getPath(root, ["tracking_link"]),
-    previous.tracking_url,
-  );
-
-  const courierCompany = firstString(
-    getPath(courierObj, ["company"]),
-    getPath(root, ["courier_company"]),
-    previous.courier_company,
-    previous.provider_name,
-  );
-
-  const courierType = firstString(
-    getPath(courierObj, ["type"]),
-    getPath(root, ["courier_type"]),
-    getPath(root, ["courier_service"]),
-    previous.courier_type,
-    previous.service_type,
-  );
-
-  const actualShippingCost = firstNumber(
-    getPath(courierObj, ["shipment_fee"]),
-    getPath(courierObj, ["shipping_cost"]),
-    getPath(courierObj, ["price"]),
-    getPath(root, ["courier", "shipment_fee"]),
-    getPath(root, ["delivery", "fee"]),
-    getPath(root, ["shipment_fee"]),
-    getPath(root, ["shipping_cost"]),
-    getPath(root, ["actual_shipping_cost"]),
-    previous.actual_shipping_cost,
-  );
-
-  const biteshipTotalPrice = firstNumber(
-    getPath(root, ["price"]),
-    getPath(root, ["total_price"]),
-    getPath(root, ["amount"]),
-  );
+  for (const candidate of candidates) {
+    const code = normalizeCourierCode10B(candidate);
+    if (code) return { input: candidate, code, candidates };
+  }
 
   return {
-    providerOrderId,
-    providerTrackingId,
-    trackingNumber,
-    trackingUrl,
-    courierCompany,
-    courierType,
-    rawStatus,
-    bookingStatus: normalizeBiteshipStatus(rawStatus, Boolean(providerOrderId)),
-    shippingStatus: mapShippingStatus(rawStatus),
-    actualShippingCost,
-    biteshipTotalPrice,
-    history,
-    response: payload,
+    input: firstNonEmpty(candidates),
+    code: "",
+    candidates,
   };
 }
 
-function biteshipAuthHeaders(apiKey: string): HeadersInit {
-  const authValue = "Basic " + btoa(apiKey + ":");
-  return {
-    Authorization: authValue,
-    Accept: "application/json",
-    "Content-Type": "application/json",
-  };
-}
-
-async function fetchBiteship(apiKey: string, path: string): Promise<{
-  ok: boolean;
-  status: number;
-  path: string;
-  payload: unknown;
-  error: string | null;
-}> {
-  try {
-    const response = await fetch(BITESHIP_BASE_URL + path, {
-      method: "GET",
-      headers: biteshipAuthHeaders(apiKey),
-    });
-    const text = await response.text();
-    let payload: unknown = text;
-    try {
-      payload = text ? JSON.parse(text) : null;
-    } catch (_) {
-      // keep text payload
-    }
-
-    const message = isRecord(payload)
-      ? firstString(payload.message, payload.error, payload.errors)
-      : null;
-
-    const successFlag = isRecord(payload) ? payload.success : undefined;
-    const ok = response.ok && successFlag !== false;
-    return {
-      ok,
-      status: response.status,
-      path,
-      payload,
-      error: ok ? null : (message || ("Biteship returned HTTP " + response.status)),
-    };
-  } catch (error) {
-    return {
-      ok: false,
-      status: 0,
-      path,
-      payload: null,
-      error: error instanceof Error ? error.message : String(error),
-    };
-  }
-}
-
-async function selectShipment(supabase: ReturnType<typeof createClient>, body: Record<string, unknown>) {
-  const shipmentId = firstString(body.shipment_id, body.shipmentId, body.id);
-  const orderId = firstString(body.order_id, body.orderId);
-  const providerOrderId = firstString(body.provider_order_id, body.providerOrderId, body.biteship_order_id);
-  const trackingNumber = firstString(body.tracking_number, body.trackingNumber, body.waybill_id, body.waybill);
-  const providerTrackingId = firstString(body.provider_tracking_id, body.providerTrackingId, body.tracking_id);
-
-  const selectColumns = "*";
-
-  if (shipmentId) {
-    const { data, error } = await supabase.from("shipments").select(selectColumns).eq("id", shipmentId).maybeSingle();
-    if (error) throw error;
-    if (data) return data as Record<string, unknown>;
-  }
-
-  if (orderId) {
-    const { data, error } = await supabase.from("shipments").select(selectColumns).eq("order_id", orderId).order("created_at", { ascending: false }).limit(1).maybeSingle();
-    if (error) throw error;
-    if (data) return data as Record<string, unknown>;
-  }
-
-  if (providerOrderId) {
-    const { data, error } = await supabase.from("shipments").select(selectColumns).eq("provider_order_id", providerOrderId).order("created_at", { ascending: false }).limit(1).maybeSingle();
-    if (error) throw error;
-    if (data) return data as Record<string, unknown>;
-  }
-
-  if (trackingNumber) {
-    const { data, error } = await supabase.from("shipments").select(selectColumns).eq("tracking_number", trackingNumber).order("created_at", { ascending: false }).limit(1).maybeSingle();
-    if (error) throw error;
-    if (data) return data as Record<string, unknown>;
-  }
-
-  if (providerTrackingId) {
-    const { data, error } = await supabase.from("shipments").select(selectColumns).eq("provider_tracking_id", providerTrackingId).order("created_at", { ascending: false }).limit(1).maybeSingle();
-    if (error) throw error;
-    if (data) return data as Record<string, unknown>;
-  }
-
-  return null;
-}
-
-function buildBiteshipLookupPaths(shipment: Record<string, unknown>, body: Record<string, unknown>): string[] {
-  const paths: string[] = [];
-
-  const providerTrackingId = firstString(
-    body.provider_tracking_id,
-    body.providerTrackingId,
-    body.tracking_id,
-    shipment.provider_tracking_id,
-  );
-
-  const trackingNumber = firstString(
-    body.tracking_number,
-    body.trackingNumber,
+function extractWaybill10B(body: AnyRecord): string {
+  return firstNonEmpty([
     body.waybill_id,
     body.waybill,
-    shipment.tracking_number,
-  );
+    body.resi,
+    body.awb,
+    body.tracking_number,
+    body.receipt_number,
+    body.courier_waybill_id,
+    body.shipment?.waybill_id,
+    body.shipment?.waybill,
+    body.shipment?.tracking_number,
+    body.shipment?.awb,
+    body.order?.waybill_id,
+    body.order?.waybill,
+    body.order?.tracking_number,
+    body.order?.courier?.waybill_id,
+    body.order?.courier?.tracking_number,
+  ]);
+}
 
-  const courierCompany = firstString(
-    body.courier_company,
-    body.courierCompany,
-    body.courier_code,
-    body.courierCode,
-    shipment.courier_company,
-    shipment.provider_name,
-  );
-
-  const providerOrderId = firstString(
-    body.provider_order_id,
-    body.providerOrderId,
+function extractBiteshipOrderId10B(body: AnyRecord): string {
+  return firstNonEmpty([
     body.biteship_order_id,
-    shipment.provider_order_id,
+    body.biteship_id,
+    body.shipping_order_id,
+    body.shipment_order_id,
+    body.shipment?.biteship_order_id,
+    body.shipment?.order_id,
+    body.order?.biteship_order_id,
+  ]);
+}
+
+async function fetchBiteship10B(path: string, apiKey: string): Promise<{ ok: boolean; status: number; data: any }> {
+  const response = await fetch(`https://api.biteship.com${path}`, {
+    method: "GET",
+    headers: {
+      Authorization: apiKey,
+      "Content-Type": "application/json",
+    },
+  });
+
+  let data: any = null;
+
+  try {
+    data = await response.json();
+  } catch (_) {
+    data = { message: await response.text().catch(() => "") };
+  }
+
+  return {
+    ok: response.ok,
+    status: response.status,
+    data,
+  };
+}
+
+function friendlyBiteshipError10B(raw: any, statusCode?: number): string {
+  const rawMessage = cleanText(
+    raw?.message ||
+    raw?.error ||
+    raw?.errors?.[0]?.message ||
+    raw?.data?.message
   );
 
-  if (providerTrackingId) {
-    paths.push("/v1/trackings/" + encodeURIComponent(providerTrackingId));
+  const lower = rawMessage.toLowerCase();
+
+  if (/cannot process authorization|authorization|unauthorized|forbidden|api key|token/.test(lower)) {
+    return "Tracking belum dapat diproses karena kode kurir atau akses Biteship tidak valid. Jika pesanan lama/manual, lengkapi kurir aktual seperti JNE, TIKI, J&T, SiCepat, atau AnterAja.";
   }
 
-  if (trackingNumber && courierCompany) {
-    paths.push("/v1/trackings/" + encodeURIComponent(trackingNumber) + "/couriers/" + encodeURIComponent(courierCompany.toLowerCase()));
+  if (!rawMessage && statusCode === 404) {
+    return "Data tracking belum ditemukan di Biteship. Pesanan lama/manual mungkin belum memiliki resi atau kode kurir yang valid.";
   }
 
-  // Phase 3B.8-R2 penting: fallback order retrieve dengan Biteship Order ID.
-  if (providerOrderId) {
-    paths.push("/v1/orders/" + encodeURIComponent(providerOrderId));
+  if (/not found|order not found|tracking.*not|waybill.*not|failed to retrieve/i.test(rawMessage)) {
+    return "Data tracking belum ditemukan. Nomor resi mungkin belum aktif di kurir atau data order lama/manual belum lengkap.";
   }
 
-  return Array.from(new Set(paths));
+  if (/waybill|resi|tracking|awb/.test(lower) && /not|tidak|invalid|kosong|empty|found|retrieve/.test(lower)) {
+    return "Nomor resi belum tersedia atau belum dikenali oleh sistem kurir.";
+  }
+
+  if (/courier|kurir|company|code/.test(lower) && /not|tidak|invalid|kosong|empty|found/.test(lower)) {
+    return "Kode kurir belum valid untuk tracking. Sistem sudah mencoba normalisasi, tetapi data order lama/manual mungkin perlu dilengkapi.";
+  }
+
+  if (/rate limit|too many/.test(lower)) {
+    return "Biteship sedang membatasi permintaan tracking. Coba beberapa saat lagi.";
+  }
+
+  if (/timeout|network|fetch/.test(lower)) {
+    return "Koneksi ke Biteship sedang bermasalah. Coba lagi beberapa saat.";
+  }
+
+  return "Tracking belum dapat diperbarui. Pesanan lama/manual mungkin belum memiliki data Biteship lengkap.";
+}
+
+function extractTrackingPayload10B(raw: any): any {
+  return raw?.data || raw?.object || raw?.tracking || raw || {};
+}
+
+function extractHistory10B(payload: any): any[] {
+  const candidates = [
+    payload?.history,
+    payload?.histories,
+    payload?.tracking_history,
+    payload?.tracking?.history,
+    payload?.data?.history,
+    payload?.object?.history,
+  ];
+
+  for (const candidate of candidates) {
+    if (Array.isArray(candidate)) return candidate;
+  }
+
+  return [];
+}
+
+function normalizeStatusLabel10B(statusInput: unknown): string {
+  const status = cleanText(statusInput).toLowerCase();
+
+  if (!status) return "Belum ada update tracking";
+  if (/delivered|received|completed|finish|success|terkirim|diterima/.test(status)) return "Terkirim / diterima";
+  if (/transit|dropping|on_process|on process|shipping|shipped|manifest|departed|arrived|perjalanan/.test(status)) return "Dalam perjalanan";
+  if (/picked|pickup|pick_up|picked_up|penjemputan|dijemput/.test(status)) return "Dijemput kurir";
+  if (/confirmed|allocated|courier_allocated|processing|process|created|pending/.test(status)) return "Diproses kurir";
+  if (/cancel|canceled|cancelled|dibatalkan/.test(status)) return "Dibatalkan";
+  if (/return|returned|retur|dikembalikan/.test(status)) return "Dikembalikan";
+  if (/failed|problem|issue|exception|gagal|bermasalah/.test(status)) return "Bermasalah, perlu pengecekan";
+
+  return cleanText(statusInput);
+}
+
+function latestStatusFromHistory10B(history: any[]): string {
+  if (!Array.isArray(history) || history.length === 0) return "";
+
+  const first = history[0] || {};
+  const last = history[history.length - 1] || {};
+
+  return first.status || first.note || first.description || last.status || last.note || last.description || "";
 }
 
 serve(async (req: Request) => {
@@ -392,174 +340,136 @@ serve(async (req: Request) => {
   }
 
   if (req.method !== "POST") {
-    return jsonResponse({ success: false, phase: PHASE, message: "Method not allowed" }, 405);
+    return jsonResponse({
+      success: false,
+      ok: false,
+      tracking_available: false,
+      code: "METHOD_NOT_ALLOWED",
+      message: "Gunakan metode POST untuk cek tracking.",
+    }, 200);
   }
-
-  const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
-  const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
-  const biteshipApiKey = Deno.env.get("BITESHIP_API_KEY") || "";
-
-  if (!supabaseUrl || !serviceRoleKey) {
-    return jsonResponse({ success: false, phase: PHASE, message: "Supabase service env is not configured" }, 500);
-  }
-
-  if (!biteshipApiKey) {
-    return jsonResponse({ success: false, phase: PHASE, message: "BITESHIP_API_KEY secret is not configured" }, 500);
-  }
-
-  let body: Record<string, unknown> = {};
-  try {
-    const parsed = await req.json();
-    body = isRecord(parsed) ? parsed : {};
-  } catch (_) {
-    body = {};
-  }
-
-  const supabase = createClient(supabaseUrl, serviceRoleKey, {
-    auth: { persistSession: false },
-  });
-
-  let shipment: Record<string, unknown> | null = null;
 
   try {
-    shipment = await selectShipment(supabase, body);
-  } catch (error) {
-    return jsonResponse({
-      success: false,
-      phase: PHASE,
-      message: "Failed to find shipment",
-      error: error instanceof Error ? error.message : String(error),
-    }, 500);
-  }
+    const apiKey = Deno.env.get("BITESHIP_API_KEY") || Deno.env.get("BITESHIP_TOKEN") || "";
 
-  if (!shipment) {
-    return jsonResponse({
-      success: false,
-      phase: PHASE,
-      message: "Shipment not found. Provide shipment_id, order_id, provider_order_id, provider_tracking_id, or tracking_number.",
-    }, 404);
-  }
+    let body: AnyRecord = {};
 
-  const lookupPaths = buildBiteshipLookupPaths(shipment, body);
-
-  if (!lookupPaths.length) {
-    return jsonResponse({
-      success: false,
-      phase: PHASE,
-      message: "No Biteship tracking/order identifier found on shipment.",
-      shipment_id: shipment.id,
-      order_id: shipment.order_id,
-    }, 400);
-  }
-
-  const attempts = [];
-  let best: Awaited<ReturnType<typeof fetchBiteship>> | null = null;
-
-  for (const path of lookupPaths) {
-    const result = await fetchBiteship(biteshipApiKey, path);
-    attempts.push({
-      path: result.path,
-      ok: result.ok,
-      status: result.status,
-      error: result.error,
-    });
-    if (result.ok) {
-      best = result;
-      break;
+    try {
+      body = await req.json();
+    } catch (_) {
+      body = {};
     }
-  }
 
-  const now = new Date().toISOString();
+    const waybill = extractWaybill10B(body);
+    const biteshipOrderId = extractBiteshipOrderId10B(body);
+    const courierPick = bestCourierCode10B(body);
+    const courierInput = courierPick.input;
+    const courierCode = courierPick.code;
 
-  if (!best) {
-    const errorMessage = attempts.map((a) => String(a.path) + ": " + String(a.error || a.status)).join(" | ");
-    await supabase
-      .from("shipments")
-      .update({
-        booking_status: "BITESHIP_TRACKING_FAILED",
-        biteship_error: errorMessage,
-        tracking_checked_at: now,
-        updated_at: now,
-      })
-      .eq("id", shipment.id);
+    if (!apiKey) {
+      return jsonResponse({
+        success: false,
+        ok: false,
+        tracking_available: false,
+        code: "BITESHIP_API_KEY_MISSING",
+        message: "Konfigurasi Biteship belum tersedia. Pastikan secret BITESHIP_API_KEY sudah diset di Supabase.",
+        courier_input: courierInput,
+        courier_code_normalized: courierCode,
+        waybill_id: waybill,
+        biteship_order_id: biteshipOrderId,
+      }, 200);
+    }
+
+    if (!waybill) {
+      return jsonResponse({
+        success: false,
+        ok: false,
+        tracking_available: false,
+        code: "WAYBILL_NOT_AVAILABLE",
+        message: "Nomor resi belum tersedia. Tracking biasanya baru aktif setelah seller membuat booking dan kurir menerbitkan resi.",
+        courier_input: courierInput,
+        courier_code_normalized: courierCode,
+        waybill_id: "",
+        biteship_order_id: biteshipOrderId,
+      }, 200);
+    }
+
+    if (!courierCode) {
+      return jsonResponse({
+        success: false,
+        ok: false,
+        tracking_available: false,
+        code: "COURIER_CODE_NOT_AVAILABLE",
+        message: "Kode kurir belum valid untuk tracking. Data saat ini terbaca sebagai provider/integrator, bukan kurir aktual. Lengkapi atau pilih kurir aktual seperti JNE, TIKI, J&T, SiCepat, atau AnterAja.",
+        courier_input: courierInput,
+        courier_code_normalized: "",
+        courier_candidates: courierPick.candidates,
+        waybill_id: waybill,
+        biteship_order_id: biteshipOrderId,
+      }, 200);
+    }
+
+    const trackingResult = await fetchBiteship10B(
+      `/v1/trackings/${encodeURIComponent(waybill)}/couriers/${encodeURIComponent(courierCode)}`,
+      apiKey
+    );
+
+    if (!trackingResult.ok) {
+      return jsonResponse({
+        success: false,
+        ok: false,
+        tracking_available: false,
+        code: "BITESHIP_TRACKING_ERROR",
+        message: friendlyBiteshipError10B(trackingResult.data, trackingResult.status),
+        courier_input: courierInput,
+        courier_code: courierCode,
+        courier_code_normalized: courierCode,
+        waybill_id: waybill,
+        biteship_order_id: biteshipOrderId,
+        biteship_status: trackingResult.status,
+      }, 200);
+    }
+
+    const payload = extractTrackingPayload10B(trackingResult.data);
+    const history = extractHistory10B(payload);
+
+    const status = firstNonEmpty([
+      payload?.status,
+      payload?.shipment_status,
+      payload?.delivery_status,
+      payload?.tracking_status,
+      latestStatusFromHistory10B(history),
+    ]);
+
+    const statusLabel = normalizeStatusLabel10B(status);
 
     return jsonResponse({
-      success: false,
-      phase: PHASE,
-      message: "Failed to retrieve Biteship tracking/order data.",
-      attempts,
+      success: true,
+      ok: true,
+      tracking_available: true,
+      code: "TRACKING_OK",
+      message: "Tracking berhasil diperbarui.",
+      courier_input: courierInput,
+      courier_code: courierCode,
+      courier_code_normalized: courierCode,
+      waybill_id: waybill,
+      biteship_order_id: biteshipOrderId,
+      status,
+      status_label: statusLabel,
+      tracking_status: status,
+      shipment_status: status,
+      tracking_history: history,
+      history,
+      tracking: payload,
     }, 200);
-  }
-
-  const normalized = normalizeBiteshipResponse(best.payload, shipment);
-
-  const shipmentUpdate: Record<string, unknown> = {
-    provider_name: "biteship",
-    provider_order_id: normalized.providerOrderId,
-    provider_tracking_id: normalized.providerTrackingId,
-    tracking_number: normalized.trackingNumber,
-    tracking_url: normalized.trackingUrl,
-    booking_status: normalized.bookingStatus,
-    tracking_status: normalized.rawStatus,
-    tracking_history_json: normalized.history,
-    tracking_response_json: normalized.response,
-    provider_response_json: normalized.response,
-    actual_shipping_cost: normalized.actualShippingCost,
-    biteship_error: null,
-    tracking_checked_at: now,
-    updated_at: now,
-  };
-
-  if (normalized.shippingStatus) {
-    shipmentUpdate.shipping_status = normalized.shippingStatus;
-  }
-
-  const { data: updatedShipment, error: updateError } = await supabase
-    .from("shipments")
-    .update(shipmentUpdate)
-    .eq("id", shipment.id)
-    .select("*")
-    .maybeSingle();
-
-  if (updateError) {
+  } catch (err) {
     return jsonResponse({
       success: false,
-      phase: PHASE,
-      message: "Biteship data retrieved, but failed to update shipment.",
-      error: updateError.message,
-      normalized,
+      ok: false,
+      tracking_available: false,
+      code: "UNHANDLED_TRACKING_ERROR",
+      message: "Tracking belum dapat diperbarui. Sistem mencegah pesan teknis mentah tampil ke pengguna.",
+      technical_message: err instanceof Error ? err.message : String(err),
     }, 200);
   }
-
-  // Best-effort sync ke order. Jika kolom tertentu tidak ada, jangan gagalkan tracking.
-  const orderId = firstString(shipment.order_id);
-  const orderSync: Record<string, unknown> = {};
-  if (normalized.shippingStatus) orderSync.shipping_status = normalized.shippingStatus;
-  if (normalized.rawStatus) orderSync.lifecycle_last_event = "biteship_" + normalized.rawStatus;
-  orderSync.lifecycle_status_updated_at = now;
-
-  let orderSyncError: string | null = null;
-  if (orderId && Object.keys(orderSync).length) {
-    const { error } = await supabase.from("orders").update(orderSync).eq("id", orderId);
-    if (error) orderSyncError = error.message;
-  }
-
-  return jsonResponse({
-    success: true,
-    phase: PHASE,
-    message: "Cek tracking Biteship berhasil",
-    used_endpoint: best.path,
-    attempts,
-    status: normalized.rawStatus,
-    booking_status: normalized.bookingStatus,
-    shipping_status: normalized.shippingStatus,
-    provider_order_id: normalized.providerOrderId,
-    provider_tracking_id: normalized.providerTrackingId,
-    tracking_number: normalized.trackingNumber,
-    tracking_url: normalized.trackingUrl,
-    actual_shipping_cost: normalized.actualShippingCost,
-    biteship_total_price: normalized.biteshipTotalPrice,
-    order_sync_warning: orderSyncError,
-    shipment: updatedShipment,
-  });
 });
