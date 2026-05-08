@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import { Session } from "@supabase/supabase-js";
 import {
   BookOpen,
@@ -36,10 +36,12 @@ type Route =
   | "buyer-login"
   | "buyer-register"
   | "buyer-profile"
+  | "buyer-addresses"
   | "seller"
   | "seller-login"
   | "master"
   | "products"
+  | "stock"
   | "orders"
   | "shipping"
   | "store-profile"
@@ -68,10 +70,12 @@ function getRoute(): Route {
     "buyer-login",
     "buyer-register",
     "buyer-profile",
+    "buyer-addresses",
     "seller",
     "seller-login",
     "master",
     "products",
+    "stock",
     "orders",
     "shipping",
     "store-profile",
@@ -121,10 +125,10 @@ export function Layout({ children, session, profile }: Props) {
 
   const isStaff = isStaffProfile(profile);
   const isAdmin = isAdminProfile(profile);
-  const sellerRoutes = ["seller", "products", "master", "orders", "shipping", "store-profile", "store-chat", "users"];
+  const sellerRoutes = ["seller", "products", "stock", "master", "orders", "shipping", "store-profile", "store-chat", "users"];
   const showSellerSidebar = Boolean(session && isStaff && sellerRoutes.includes(route));
   const showBuyerHeader = !showSellerSidebar && route !== "seller-login";
-  const isBuyerSurfaceRoute = route === "buyer" || route === "buyer-profile";
+  const isBuyerSurfaceRoute = route === "buyer" || route === "buyer-profile" || route === "buyer-addresses";
   const showBuyerSessionActions = Boolean(showBuyerHeader && session && isBuyerSurfaceRoute);
 
   const topbarStyle = useMemo(() => {
@@ -242,6 +246,10 @@ export function Layout({ children, session, profile }: Props) {
     openBuyerProfileTab("orders");
   }
 
+  function openBuyerAddresses() {
+    window.location.hash = "/buyer-addresses";
+  }
+
   function openCartFromHeader() {
     if (getRoute() === "buyer") {
       requestOpenCart();
@@ -331,7 +339,7 @@ export function Layout({ children, session, profile }: Props) {
           )}
           <div>
             <strong>{storeProfile?.store_name || "UrbaNoiD Official Store"}</strong>
-            <span>{storeProfile?.tagline || "Identity in Motion · Premium Urban Apparel"}</span>
+            <span>{storeProfile?.tagline || "Identity in Motion Â· Premium Urban Apparel"}</span>
           </div>
         </a>
 
@@ -360,6 +368,12 @@ export function Layout({ children, session, profile }: Props) {
                   <ClipboardList size={17} /> Pesanan Saya
                 </button>
               )}
+
+            {showBuyerSessionActions && (
+              <button type="button" className="header-auth-btn buyer-addresses-header-btn" onClick={openBuyerAddresses}>
+                Atur Alamat
+              </button>
+            )}
 
               <button type="button" className="header-auth-btn buyer-cart-header-btn" onClick={openCartFromHeader}>
                 <ShoppingBag size={17} /> Keranjang {cartBadge > 0 ? `(${cartBadge})` : ""}
@@ -404,6 +418,11 @@ export function Layout({ children, session, profile }: Props) {
                 <Boxes size={16} />
                 <span>Buka Product Matrix</span>
               </a>
+
+            <a className={route === "stock" ? "active" : ""} href="#/stock">
+              <Boxes size={16} />
+              <span>Stok Produk</span>
+            </a>
 
               <button
                 type="button"
@@ -510,3 +529,7 @@ export function Layout({ children, session, profile }: Props) {
     </div>
   );
 }
+
+
+
+

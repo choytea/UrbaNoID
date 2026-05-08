@@ -1,10 +1,26 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import { Session } from "@supabase/supabase-js";
 import { supabase } from "../lib/supabase";
 import { CartItem, cartShippingCost, cartSubtotal, cartWeight } from "../lib/cart";
 import { formatCurrency } from "../lib/utils";
 import { Profile, ShippingExpedition } from "../types";
 
+
+type BuyerCheckoutAddress = {
+  id: string;
+  buyer_id: string;
+  label: string;
+  recipient_name: string | null;
+  phone: string | null;
+  address_line: string;
+  district: string | null;
+  city: string | null;
+  province: string | null;
+  postal_code: string | null;
+  notes: string | null;
+  is_main: boolean;
+  is_active: boolean;
+};
 // PHASE_3B_8_R3_EXPEDITION_SOURCE_NORMALIZATION_HELPER
 function phase3B8R3HasBiteshipSelectedRate(): boolean {
   if (typeof window === "undefined" || typeof document === "undefined") return false;
@@ -92,6 +108,9 @@ export function CheckoutModal({
   const [city, setCity] = useState(profile?.city || "");
   const [province, setProvince] = useState(profile?.province || "");
   const [postalCode, setPostalCode] = useState(profile?.postal_code || "");
+  const [buyerAddresses, setBuyerAddresses] = useState<BuyerCheckoutAddress[]>([]);
+  const [selectedAddressId, setSelectedAddressId] = useState("");
+  const [addressLoading, setAddressLoading] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState("BANK_TRANSFER");
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
@@ -120,6 +139,77 @@ export function CheckoutModal({
     setProvince(profile?.province || "");
     setPostalCode(profile?.postal_code || "");
   }, [profile, session]);
+
+  function applyBuyerCheckoutAddress(row: BuyerCheckoutAddress) {
+    setCustomerName(row.recipient_name || profile?.full_name || profile?.username || "");
+    setCustomerPhone(row.phone || profile?.phone || "");
+    setAddress(row.address_line || "");
+    setDistrict(row.district || "");
+    setCity(row.city || "");
+    setProvince(row.province || "");
+    setPostalCode(row.postal_code || "");
+
+    // Phase 3B.9A4-R2:
+    // Setelah alamat buyer berubah, minta bridge ongkir menghitung ulang Rates API
+    // berdasarkan kota/kode pos/alamat tujuan terbaru.
+    window.setTimeout(() => {
+      window.dispatchEvent(new CustomEvent("urbanoid-checkout-address-changed", {
+        detail: {
+          address_id: row.id,
+          city: row.city || "",
+          province: row.province || "",
+          postal_code: row.postal_code || "",
+        },
+      }));
+    }, 120);
+  }
+
+  useEffect(() => {
+    if (!open || !session?.user?.id) return;
+
+    let cancelled = false;
+
+    async function loadBuyerCheckoutAddresses() {
+      setAddressLoading(true);
+
+      const { data, error } = await supabase
+        .from("buyer_addresses")
+        .select("*")
+        .eq("buyer_id", session!.user.id)
+        .eq("is_active", true)
+        .order("is_main", { ascending: false })
+        .order("created_at", { ascending: true });
+
+      if (cancelled) return;
+
+      setAddressLoading(false);
+
+      if (error) {
+        console.warn("Gagal memuat alamat buyer untuk checkout:", error.message);
+        setBuyerAddresses([]);
+        setSelectedAddressId("");
+        return;
+      }
+
+      const list = (data || []) as BuyerCheckoutAddress[];
+      setBuyerAddresses(list);
+
+      const defaultAddress = list.find(item => item.is_main) || list[0] || null;
+
+      if (defaultAddress) {
+        setSelectedAddressId(defaultAddress.id);
+        applyBuyerCheckoutAddress(defaultAddress);
+      } else {
+        setSelectedAddressId("");
+      }
+    }
+
+    loadBuyerCheckoutAddresses();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [open, session?.user?.id]);
 
   if (!open) return null;
 
@@ -217,9 +307,9 @@ export function CheckoutModal({
         <div className="checkout-head">
           <div>
             <h2>Checkout Pesanan</h2>
-            <p>{items.length} item · {weight} gram · Total {formatCurrency(grandTotal)}</p>
+            <p>{items.length} item Â· {weight} gram Â· Total {formatCurrency(grandTotal)}</p>
           </div>
-          <button onClick={onClose}>×</button>
+          <button onClick={onClose}>Ã—</button>
         </div>
 
         {!session ? (
@@ -231,6 +321,33 @@ export function CheckoutModal({
         ) : (
           <form onSubmit={submit}>
             <div className="checkout-grid">
+
+          {buyerAddresses.length > 0 && (
+            <label className="checkout-full phase3b9a4-address-select">
+              Pilih Alamat Pengiriman
+              <select
+                data-phase3b9a4-address-select="true"
+                value={selectedAddressId}
+                onChange={event => {
+                  const nextId = event.target.value;
+                  setSelectedAddressId(nextId);
+
+                  const selected = buyerAddresses.find(item => item.id === nextId);
+                  if (selected) applyBuyerCheckoutAddress(selected);
+                }}
+                disabled={addressLoading}
+              >
+                {buyerAddresses.map(item => (
+                  <option key={item.id} value={item.id}>
+                    {item.is_main ? "Utama - " : ""}{item.label} · {item.city || "-"} {item.postal_code ? `· ${item.postal_code}` : ""}
+                  </option>
+                ))}
+              </select>
+              <small>
+                Alamat utama otomatis dipilih. Field di bawah tetap dapat diedit sebelum checkout.
+              </small>
+            </label>
+          )}
               <label>Nama Penerima<input value={customerName} onChange={e => setCustomerName(e.target.value)} required /></label>
               <label>Email<input value={customerEmail} onChange={e => setCustomerEmail(e.target.value)} type="email" required /></label>
               <label>Nomor Kontak<input value={customerPhone} onChange={e => setCustomerPhone(e.target.value)} required /></label>
@@ -248,7 +365,7 @@ export function CheckoutModal({
                   <option value="">{shippingOptions.length ? "- Pilih Ekspedisi -" : "Ekspedisi belum tersedia"}</option>
                   {shippingOptions.map(option => (
                     <option key={option.id} value={option.id}>
-                      {option.name}{option.service_name ? ` / ${option.service_name}` : ""} — {formatCurrency(option.base_cost || 0)} {option.etd_text ? `(${option.etd_text})` : ""}
+                      {option.name}{option.service_name ? ` / ${option.service_name}` : ""} â€” {formatCurrency(option.base_cost || 0)} {option.etd_text ? `(${option.etd_text})` : ""}
                     </option>
                   ))}
                 </select>
@@ -265,7 +382,7 @@ export function CheckoutModal({
               <h3>Ringkasan Pesanan</h3>
               {items.map(item => (
                 <div key={item.id}>
-                  <span>{item.product_name} · {item.color_name} / {item.size_name} / {item.pattern_type} × {item.quantity}</span>
+                  <span>{item.product_name} Â· {item.color_name} / {item.size_name} / {item.pattern_type} Ã— {item.quantity}</span>
                   <strong>{formatCurrency(item.quantity * item.unit_price)}</strong>
                 </div>
               ))}
@@ -299,3 +416,6 @@ export function CheckoutModal({
 
 
 // PHASE_3B_8_R3_CHECKOUT_VALIDATION_NORMALIZED
+
+
+

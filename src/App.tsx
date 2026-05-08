@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import { Session } from "@supabase/supabase-js";
 import { supabase } from "./lib/supabase";
 import { Profile } from "./types";
@@ -6,12 +6,14 @@ import { Layout } from "./components/Layout";
 import { BuyerCatalog } from "./pages/BuyerCatalog";
 import { BuyerAuthPage } from "./pages/BuyerAuthPage";
 import BuyerProfilePage from "./pages/BuyerProfilePage";
+import BuyerAddressPage from "./pages/BuyerAddressPage";
 import { SellerDashboard } from "./pages/SellerDashboard";
 import SellerLoginPage from "./pages/SellerLoginPage";
 import MasterDataPage from "./pages/MasterDataPage";
 import { ProductMatrixPage } from "./pages/ProductMatrixPage";
 import OrdersPage from "./pages/OrdersPage";
 import ShippingPage from "./pages/ShippingPage";
+import StockPage from "./pages/StockPage";
 import StoreProfilePage from "./pages/StoreProfilePage";
 import StoreChatAdminPage from "./pages/StoreChatAdminPage";
 import UsersPage from "./pages/UsersPage";
@@ -21,10 +23,12 @@ type Route =
   | "buyer-login"
   | "buyer-register"
   | "buyer-profile"
+  | "buyer-addresses"
   | "seller"
   | "seller-login"
   | "master"
   | "products"
+  | "stock"
   | "orders"
   | "shipping"
   | "store-profile"
@@ -32,9 +36,9 @@ type Route =
   | "users"
   | "login";
 
-const STAFF_ROUTES: Route[] = ["seller", "master", "products", "orders", "shipping", "store-profile", "store-chat"];
+const STAFF_ROUTES: Route[] = ["seller", "master", "products", "stock", "orders", "shipping", "store-profile", "store-chat"];
 const ADMIN_ROUTES: Route[] = ["users"];
-const AUTH_BUYER_ROUTES: Route[] = ["buyer-profile"];
+const AUTH_BUYER_ROUTES: Route[] = ["buyer-profile", "buyer-addresses"];
 
 function getRoute(): Route {
   const hash = window.location.hash.replace("#/", "").split("?")[0];
@@ -43,10 +47,12 @@ function getRoute(): Route {
     "buyer-login",
     "buyer-register",
     "buyer-profile",
+    "buyer-addresses",
     "seller",
     "seller-login",
     "master",
     "products",
+    "stock",
     "orders",
     "shipping",
     "store-profile",
@@ -85,7 +91,7 @@ function AdminAccessDenied() {
   return (
     <section className="panel access-denied-panel">
       <div className="security-card">
-        <div className="security-icon">🔒</div>
+        <div className="security-icon">ðŸ”’</div>
         <div>
           <h1>Akses Dibatasi</h1>
           <p>Halaman ini hanya dapat dibuka oleh akun dengan role yang sesuai.</p>
@@ -250,13 +256,19 @@ export default function App() {
       {route === "seller" && <SellerDashboard />}
       {route === "master" && <MasterDataPage />}
       {route === "products" && <ProductMatrixPage />}
+        {route === "stock" && <StockPage />}
       {route === "orders" && <OrdersPage />}
       {route === "shipping" && <ShippingPage />}
       {route === "store-profile" && <StoreProfilePage />}
       {route === "store-chat" && <StoreChatAdminPage />}
       {route === "users" && <UsersPage />}
       {route === "buyer-profile" && <BuyerProfilePage session={session} profile={profile} onProfileUpdated={() => loadProfile(session)} />}
+        {route === "buyer-addresses" && <BuyerAddressPage session={session} profile={profile} />}
       {route === "buyer" && <BuyerCatalog session={session} profile={profile} />}
     </Layout>
   );
 }
+
+
+
+

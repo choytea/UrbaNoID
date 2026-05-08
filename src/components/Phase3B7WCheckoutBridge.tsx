@@ -170,10 +170,51 @@ function readInputByLabel(container: HTMLElement | null, labels: string[]) {
 }
 
 function findShippingSelect(container: HTMLElement | null) {
-  const direct = findControlNearLabel(container, ["ekspedisi pengiriman", "ekspedisi", "kurir", "pengiriman"], "select") as HTMLSelectElement | null;
-  if (direct) return direct;
-  const selects = Array.from(container?.querySelectorAll("select") || []) as HTMLSelectElement[];
-  return selects.find((select) => /jne|sicepat|anteraja|j&t|jnt|pos|tiki|reg|yes|ez/i.test(getElementText(select))) || null;
+  if (!container) return null;
+
+  // Phase 3B.9A4-R1:
+  // Select alamat buyer tidak boleh dianggap sebagai select ekspedisi.
+  // Sebelumnya label "Pilih Alamat Pengiriman" ikut terbaca sebagai pengiriman,
+  // sehingga opsi TIKI/JNE/Biteship masuk ke dropdown alamat.
+  const isBuyerAddressSelect = (select: HTMLSelectElement) => {
+    return (
+      select.getAttribute("data-phase3b9a4-address-select") === "true" ||
+      Boolean(select.closest(".phase3b9a4-address-select")) ||
+      Boolean(select.closest("[data-phase3b9a4-address-select='true']"))
+    );
+  };
+
+  const selects = Array.from(container.querySelectorAll("select")) as HTMLSelectElement[];
+
+  const usableSelects = selects.filter(select => !isBuyerAddressSelect(select));
+
+  const textOf = (select: HTMLSelectElement) => [
+    select.id,
+    select.name,
+    select.getAttribute("aria-label"),
+    select.getAttribute("placeholder"),
+    select.closest("label")?.textContent,
+    select.parentElement?.textContent,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+
+  const strongShippingMatch = usableSelects.find(select => {
+    const text = textOf(select);
+    return /ekspedisi|kurir|courier|shipping/.test(text);
+  });
+
+  if (strongShippingMatch) return strongShippingMatch;
+
+  const weakShippingMatch = usableSelects.find(select => {
+    const text = textOf(select);
+    return /pengiriman/.test(text) && !/alamat/.test(text);
+  });
+
+  if (weakShippingMatch) return weakShippingMatch;
+
+  return usableSelects[0] || null;
 }
 
 function findCheckoutSubmitButton(container: HTMLElement | null) {
@@ -651,6 +692,24 @@ export function Phase3B7WCheckoutBridge() {
       setLoading(false);
     }
   }
+  // Phase 3B.9A4-R2 Address Change Recalculate Rates
+  useEffect(() => {
+    function phase3b9a4R2HandleAddressChanged() {
+      window.setTimeout(() => {
+        try {
+          void loadRates(false);
+        } catch (err) {
+          console.warn("Phase 3B.9A4-R2 gagal refresh ongkir setelah alamat berubah:", err);
+        }
+      }, 450);
+    }
+
+    window.addEventListener("urbanoid-checkout-address-changed", phase3b9a4R2HandleAddressChanged);
+
+    return () => {
+      window.removeEventListener("urbanoid-checkout-address-changed", phase3b9a4R2HandleAddressChanged);
+    };
+  });
 
   useEffect(() => {
     if (!container || !subtotal) return;
@@ -972,6 +1031,8 @@ export function Phase3B7WCheckoutBridge() {
   observer.observe(document.documentElement, { childList: true, subtree: true, characterData: true });
   window.setTimeout(normalizeCart, 250);
 })();
+
+
 
 
 

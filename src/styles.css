@@ -7890,3 +7890,406 @@ select[data-phase3b7w-r13-select-only='true'] {
   }
 }
 
+
+/* Phase 3B.9A1 Seller Stock Produk */
+.phase3b9a1-stock-page {
+  display: grid;
+  gap: 18px;
+}
+
+.stock-page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.stock-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(130px, 1fr));
+  gap: 12px;
+}
+
+.stock-summary-grid > div {
+  background: #ffffff;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 16px;
+  padding: 14px;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.05);
+}
+
+.stock-summary-grid small,
+.stock-table small {
+  display: block;
+  color: #64748b;
+  margin-top: 3px;
+}
+
+.stock-summary-grid strong {
+  display: block;
+  font-size: 1.35rem;
+  margin-top: 4px;
+}
+
+.stock-toolbar {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.stock-toolbar input {
+  flex: 1;
+}
+
+.stock-toolbar input,
+.stock-toolbar select,
+.stock-table input {
+  border: 1px solid rgba(15, 23, 42, 0.14);
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: #ffffff;
+}
+
+.stock-table-wrap {
+  overflow-x: auto;
+}
+
+.stock-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.stock-table th,
+.stock-table td {
+  padding: 12px;
+  border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+  vertical-align: middle;
+  text-align: left;
+}
+
+.stock-table input {
+  width: 105px;
+}
+
+.stock-status {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  background: #e2e8f0;
+  color: #334155;
+}
+
+.stock-status.aman {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.stock-status.menipis {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.stock-status.habis {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.stock-status.nonaktif {
+  background: #e2e8f0;
+  color: #475569;
+}
+
+@media (max-width: 900px) {
+  .stock-page-header,
+  .stock-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .stock-summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* Phase 3B.9A3 Buyer Addresses UI */
+.phase3b9a3-address-page {
+  display: grid;
+  gap: 18px;
+}
+
+.buyer-address-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.buyer-address-layout {
+  display: grid;
+  grid-template-columns: minmax(320px, 0.9fr) minmax(360px, 1.1fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.buyer-address-form,
+.buyer-address-list {
+  background: #ffffff;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 20px;
+  padding: 18px;
+  box-shadow: 0 12px 36px rgba(15, 23, 42, 0.06);
+}
+
+.buyer-address-form h2,
+.buyer-address-list h2 {
+  margin: 0 0 14px;
+}
+
+.buyer-address-form .form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.buyer-address-form label {
+  display: grid;
+  gap: 6px;
+  font-weight: 700;
+}
+
+.buyer-address-form label.full {
+  grid-column: 1 / -1;
+}
+
+.buyer-address-form input,
+.buyer-address-form textarea {
+  width: 100%;
+  border: 1px solid rgba(15, 23, 42, 0.14);
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: #ffffff;
+}
+
+.checkbox-line {
+  display: flex !important;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.checkbox-line input {
+  width: auto;
+}
+
+.form-actions,
+.address-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.address-list-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.address-card {
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 16px;
+  padding: 14px;
+  margin-bottom: 12px;
+  background: #f8fafc;
+}
+
+.address-card.main {
+  border-color: rgba(34, 197, 94, 0.35);
+  background: #f0fdf4;
+}
+
+.address-card-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.address-card-title span {
+  display: inline-flex;
+  margin-left: 8px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: #dcfce7;
+  color: #166534;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.address-card p {
+  margin: 5px 0;
+}
+
+.address-card small,
+.address-list-head small,
+.address-note {
+  color: #64748b;
+}
+
+.address-note {
+  border-radius: 14px;
+  padding: 12px;
+  background: #eff6ff;
+}
+
+.buyer-addresses-header-btn {
+  white-space: nowrap;
+}
+
+@media (max-width: 900px) {
+  .buyer-address-header,
+  .buyer-address-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .buyer-address-header {
+    flex-direction: column;
+  }
+
+  .buyer-address-form .form-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Phase 3B.9A3-R2 Buyer Address Button */
+.buyer-address-tab-btn {
+  border: 1px solid rgba(15, 23, 42, 0.14);
+  background: #ffffff;
+  color: #0f172a;
+  border-radius: 14px;
+  padding: 10px 16px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.buyer-address-tab-btn:hover {
+  border-color: rgba(15, 23, 42, 0.28);
+  background: #f8fafc;
+}
+
+/* Phase 3B.9A3-R3 Address Inside Profile */
+.phase3b9a3-profile-shell {
+  padding: 18px;
+}
+
+.phase3b9a3-profile-card {
+  background: #ffffff;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 22px;
+  padding: 24px;
+  box-shadow: 0 14px 40px rgba(15, 23, 42, 0.06);
+  max-width: 1120px;
+}
+
+.phase3b9a3-profile-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 18px;
+  margin-bottom: 14px;
+}
+
+.phase3b9a3-profile-head h1 {
+  margin: 0;
+  font-size: 2rem;
+}
+
+.phase3b9a3-profile-head p {
+  margin: 4px 0 0;
+  color: #64748b;
+  font-weight: 700;
+}
+
+.phase3b9a3-profile-head button,
+.phase3b9a3-profile-tabs button {
+  border: 1px solid rgba(15, 23, 42, 0.14);
+  background: #ffffff;
+  color: #0f172a;
+  border-radius: 14px;
+  padding: 10px 16px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.phase3b9a3-profile-head button:hover,
+.phase3b9a3-profile-tabs button:hover {
+  background: #f8fafc;
+  border-color: rgba(15, 23, 42, 0.28);
+}
+
+.phase3b9a3-profile-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 22px;
+}
+
+.phase3b9a3-profile-tabs button.active {
+  background: #0f172a;
+  border-color: #0f172a;
+  color: #ffffff;
+}
+
+.phase3b9a3-profile-card .buyer-address-header {
+  margin-top: 8px;
+}
+
+.phase3b9a3-profile-card .buyer-address-layout {
+  margin-top: 16px;
+}
+
+@media (max-width: 900px) {
+  .phase3b9a3-profile-shell {
+    padding: 10px;
+  }
+
+  .phase3b9a3-profile-card {
+    padding: 16px;
+  }
+
+  .phase3b9a3-profile-head {
+    flex-direction: column;
+  }
+}
+
+/* Phase 3B.9A4 Checkout Buyer Addresses */
+.phase3b9a4-address-select {
+  background: #f8fafc;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 16px;
+  padding: 12px;
+}
+
+.phase3b9a4-address-select select {
+  width: 100%;
+  border: 1px solid rgba(15, 23, 42, 0.14);
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: #ffffff;
+}
+
+.phase3b9a4-address-select small {
+  display: block;
+  margin-top: 6px;
+  color: #64748b;
+  font-weight: 700;
+  line-height: 1.35;
+}
