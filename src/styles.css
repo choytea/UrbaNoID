@@ -1,4 +1,4 @@
-﻿:root {
+:root {
   --bg: #eef3f8;
   --panel: #ffffff;
   --ink: #0f172a;
@@ -8874,3 +8874,203 @@ select[data-phase3b7w-r13-select-only='true'] {
   background: #ecfdf5;
   color: #166534;
 }
+
+/* Phase 3B.9B-3E Finance Compact Medium START */
+/* Scope khusus halaman Keuangan agar tampilan 100% browser lebih proporsional. */
+.phase3b9b3d-finance-page {
+  max-width: 1320px;
+  margin: 0 auto;
+  padding-bottom: 28px;
+}
+
+.phase3b9b3d-finance-page .finance-page-header {
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+
+.phase3b9b3d-finance-page .finance-page-header h1 {
+  font-size: 1.85rem;
+  line-height: 1.12;
+  margin: 0 0 8px;
+}
+
+.phase3b9b3d-finance-page .finance-page-header p {
+  font-size: 0.92rem;
+  line-height: 1.4;
+  margin: 0;
+}
+
+.phase3b9b3d-finance-page .finance-actions {
+  gap: 9px;
+  align-items: stretch;
+}
+
+.phase3b9b3d-finance-page .finance-actions select,
+.phase3b9b3d-finance-page .finance-actions button {
+  min-height: 38px;
+  padding: 9px 13px;
+  border-radius: 12px;
+  font-size: 0.92rem;
+  line-height: 1.15;
+}
+
+.phase3b9b3d-finance-page .finance-kpi-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 11px;
+  margin-bottom: 16px;
+}
+
+.phase3b9b3d-finance-page .finance-kpi-grid > div {
+  padding: 13px 15px;
+  border-radius: 16px;
+  min-height: 68px;
+}
+
+.phase3b9b3d-finance-page .finance-kpi-grid small {
+  font-size: 0.78rem;
+  line-height: 1.25;
+  margin-bottom: 4px;
+}
+
+.phase3b9b3d-finance-page .finance-kpi-grid strong {
+  font-size: 1.05rem;
+  line-height: 1.18;
+}
+
+.phase3b9b3d-finance-page .finance-panel-grid {
+  gap: 15px;
+  margin-bottom: 16px;
+}
+
+.phase3b9b3d-finance-page .finance-card {
+  padding: 15px;
+  border-radius: 18px;
+}
+
+.phase3b9b3d-finance-page .finance-card-head {
+  margin-bottom: 10px;
+  gap: 10px;
+}
+
+.phase3b9b3d-finance-page .finance-card-head h2 {
+  font-size: 1.14rem;
+  line-height: 1.2;
+}
+
+.phase3b9b3d-finance-page .finance-card-head small {
+  font-size: 0.78rem;
+}
+
+.phase3b9b3d-finance-page .finance-status-grid {
+  gap: 10px;
+}
+
+.phase3b9b3d-finance-page .finance-status-grid > div {
+  padding: 12px 14px;
+  border-radius: 14px;
+  min-height: 64px;
+}
+
+.phase3b9b3d-finance-page .finance-status-grid small {
+  font-size: 0.78rem;
+}
+
+.phase3b9b3d-finance-page .finance-status-grid strong {
+  font-size: 1.05rem;
+}
+
+.phase3b9b3d-finance-page .finance-note,
+.phase3b9b3d-finance-page .finance-biteship-plan,
+.phase3b9b3d-finance-page .finance-biteship-active-note {
+  margin-top: 12px;
+  padding: 11px 13px;
+  font-size: 0.88rem;
+  line-height: 1.42;
+  border-radius: 14px;
+}
+
+.phase3b9b3d-finance-page .finance-table-wrap {
+  overflow-x: auto;
+}
+
+.phase3b9b3d-finance-page .finance-table {
+  font-size: 0.9rem;
+}
+
+.phase3b9b3d-finance-page .finance-table th,
+.phase3b9b3d-finance-page .finance-table td {
+  padding: 9px 10px;
+  line-height: 1.32;
+  vertical-align: top;
+}
+
+.phase3b9b3d-finance-page .finance-table th {
+  font-size: 0.8rem;
+}
+
+.phase3b9b3d-finance-page .finance-table td strong {
+  font-size: 0.92rem;
+}
+
+.phase3b9b3d-finance-page .finance-margin,
+.phase3b9b3d-finance-page .finance-biteship-status {
+  font-size: 0.74rem;
+  padding: 4px 8px;
+  line-height: 1.15;
+}
+
+.phase3b9b3d-finance-page .finance-sync-btn {
+  min-width: 88px;
+  padding: 7px 9px;
+  border-radius: 11px;
+  font-size: 0.84rem;
+  line-height: 1.12;
+}
+
+.phase3b9b3d-finance-page .finance-biteship-error {
+  max-width: 136px;
+  font-size: 0.8rem;
+  line-height: 1.3;
+}
+
+.phase3b9b3d-finance-page .finance-biteship-table {
+  min-width: 1080px;
+}
+
+@media (max-width: 1280px) {
+  .phase3b9b3d-finance-page .finance-kpi-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 960px) {
+  .phase3b9b3d-finance-page .finance-page-header {
+    flex-direction: column;
+  }
+
+  .phase3b9b3d-finance-page .finance-kpi-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .phase3b9b3d-finance-page .finance-panel-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .phase3b9b3d-finance-page .finance-kpi-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .phase3b9b3d-finance-page .finance-actions {
+    width: 100%;
+    flex-direction: column;
+  }
+
+  .phase3b9b3d-finance-page .finance-actions select,
+  .phase3b9b3d-finance-page .finance-actions button {
+    width: 100%;
+  }
+}
+/* Phase 3B.9B-3E Finance Compact Medium END */
