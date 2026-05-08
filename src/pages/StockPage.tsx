@@ -6,6 +6,8 @@ type ProductRow = {
   product_name?: string | null;
   sku_product?: string | null;
   status?: string | null;
+  showcase_id?: string | null;
+  showcases?: any;
 };
 
 type VariantRow = {
@@ -38,13 +40,27 @@ type ColorGroup = {
   emptyStockCount: number;
 };
 
-type StockGroup = {
+type ProductGroup = {
   key: string;
   product: ProductRow | null;
   productName: string;
   skuProduct: string;
+  etalaseName: string;
   rows: StockRow[];
   colorGroups: ColorGroup[];
+  totalStock: number;
+  totalVariants: number;
+  totalHppUnit: number;
+  stockAssetValue: number;
+  lowStockCount: number;
+  emptyStockCount: number;
+};
+
+type EtalaseGroup = {
+  key: string;
+  etalaseName: string;
+  productGroups: ProductGroup[];
+  totalProducts: number;
   totalStock: number;
   totalVariants: number;
   totalHppUnit: number;
@@ -58,6 +74,10 @@ function numberOrZero(value: unknown) {
   return Number.isFinite(n) ? n : 0;
 }
 
+function asText(value: unknown) {
+  return String(value ?? "").trim();
+}
+
 function formatCurrency(value: unknown) {
   return new Intl.NumberFormat("id-ID", {
     style: "currency",
@@ -67,15 +87,32 @@ function formatCurrency(value: unknown) {
 }
 
 function normalizeKey(value: unknown) {
-  return String(value || "")
-    .trim()
+  return asText(value)
     .toLowerCase()
     .replace(/\s+/g, "-")
     .replace(/[^a-z0-9-]/g, "");
 }
 
+function relName(value: any): string {
+  if (!value) return "";
+
+  if (Array.isArray(value)) {
+    return relName(value[0]);
+  }
+
+  if (typeof value === "object") {
+    return asText(value.name || value.etalase_name || value.title || value.label);
+  }
+
+  return asText(value);
+}
+
 function colorNameOf(row: StockRow) {
   return row.colors?.name || "Tanpa Warna";
+}
+
+function productEtalaseName(product: ProductRow | null) {
+  return relName(product?.showcases) || "Tanpa Etalase";
 }
 
 function stockStatus(row: StockRow) {
@@ -97,6 +134,7 @@ function statusLabel(status: string) {
 
 function rowSearchText(row: StockRow) {
   return [
+    productEtalaseName(row.product || null),
     row.product?.product_name,
     row.product?.sku_product,
     row.sku_variant,
@@ -156,7 +194,8 @@ export default function StockPage() {
   const [notice, setNotice] = useState("");
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<"ALL" | "AMAN" | "MENIPIS" | "HABIS" | "NONAKTIF">("ALL");
-  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+  const [collapsedEtalase, setCollapsedEtalase] = useState<Record<string, boolean>>({});
+  const [collapsedProducts, setCollapsedProducts] = useState<Record<string, boolean>>({});
   const [collapsedColors, setCollapsedColors] = useState<Record<string, boolean>>({});
 
   async function loadRows() {
@@ -195,7 +234,7 @@ export default function StockPage() {
     if (productIds.length) {
       const { data: products, error: productError } = await supabase
         .from("products")
-        .select("id, product_name, sku_product, status")
+        .select("id, product_name, sku_product, status, showcase_id, showcases(name)")
         .in("id", productIds);
 
       if (productError) {
@@ -254,19 +293,21 @@ export default function StockPage() {
     });
   }, [rows, query, filter]);
 
-  const groups = useMemo<StockGroup[]>(() => {
-    const map = new Map<string, StockGroup>();
+  const etalaseGroups = useMemo<EtalaseGroup[]>(() => {
+    const productMap = new Map<string, ProductGroup>();
 
     filteredRows.forEach(row => {
       const key = row.product_id || "tanpa-produk";
       const productName = row.product?.product_name || "Produk tanpa nama";
       const skuProduct = row.product?.sku_product || "-";
+      const etalaseName = productEtalaseName(row.product || null);
 
-      const current = map.get(key) || {
+      const current = productMap.get(key) || {
         key,
         product: row.product || null,
         productName,
         skuProduct,
+        etalaseName,
         rows: [],
         colorGroups: [],
         totalStock: 0,
@@ -290,58 +331,104 @@ export default function StockPage() {
       if (status === "MENIPIS") current.lowStockCount += 1;
       if (status === "HABIS") current.emptyStockCount += 1;
 
-      map.set(key, current);
+      productMap.set(key, current);
     });
 
-    return Array.from(map.values())
+    const productGroups = Array.from(productMap.values())
       .map(group => ({
         ...group,
         colorGroups: buildColorGroups(group.rows),
       }))
       .sort((a, b) => a.productName.localeCompare(b.productName));
+
+    const etalaseMap = new Map<string, EtalaseGroup>();
+
+    productGroups.forEach(product => {
+      const key = `${normalizeKey(product.etalaseName) || "tanpa-etalase"}::${product.etalaseName}`;
+
+      const current = etalaseMap.get(key) || {
+        key,
+        etalaseName: product.etalaseName,
+        productGroups: [],
+        totalProducts: 0,
+        totalStock: 0,
+        totalVariants: 0,
+        totalHppUnit: 0,
+        stockAssetValue: 0,
+        lowStockCount: 0,
+        emptyStockCount: 0,
+      };
+
+      current.productGroups.push(product);
+      current.totalProducts += 1;
+      current.totalStock += product.totalStock;
+      current.totalVariants += product.totalVariants;
+      current.totalHppUnit += product.totalHppUnit;
+      current.stockAssetValue += product.stockAssetValue;
+      current.lowStockCount += product.lowStockCount;
+      current.emptyStockCount += product.emptyStockCount;
+
+      etalaseMap.set(key, current);
+    });
+
+    return Array.from(etalaseMap.values()).sort((a, b) => a.etalaseName.localeCompare(b.etalaseName));
   }, [filteredRows]);
 
-  function toggleGroup(key: string) {
-    setCollapsed(prev => ({
-      ...prev,
-      [key]: !(prev[key] ?? true),
-    }));
+  function toggleEtalase(key: string) {
+    setCollapsedEtalase(prev => ({ ...prev, [key]: !(prev[key] ?? false) }));
+  }
+
+  function toggleProduct(key: string) {
+    setCollapsedProducts(prev => ({ ...prev, [key]: !(prev[key] ?? true) }));
   }
 
   function toggleColor(key: string) {
-    setCollapsedColors(prev => ({
-      ...prev,
-      [key]: !(prev[key] ?? true),
-    }));
+    setCollapsedColors(prev => ({ ...prev, [key]: !(prev[key] ?? true) }));
   }
 
   function openAllGroups() {
-    const next: Record<string, boolean> = {};
+    const nextEtalase: Record<string, boolean> = {};
+    const nextProducts: Record<string, boolean> = {};
     const nextColors: Record<string, boolean> = {};
 
-    groups.forEach(group => {
-      next[group.key] = false;
-      group.colorGroups.forEach(color => {
-        nextColors[group.key + "::" + color.key] = false;
+    etalaseGroups.forEach(etalase => {
+      nextEtalase[etalase.key] = false;
+
+      etalase.productGroups.forEach(product => {
+        const productKey = etalase.key + "::" + product.key;
+        nextProducts[productKey] = false;
+
+        product.colorGroups.forEach(color => {
+          nextColors[productKey + "::" + color.key] = false;
+        });
       });
     });
 
-    setCollapsed(next);
+    setCollapsedEtalase(nextEtalase);
+    setCollapsedProducts(nextProducts);
     setCollapsedColors(nextColors);
   }
 
   function closeAllGroups() {
-    const next: Record<string, boolean> = {};
+    const nextEtalase: Record<string, boolean> = {};
+    const nextProducts: Record<string, boolean> = {};
     const nextColors: Record<string, boolean> = {};
 
-    groups.forEach(group => {
-      next[group.key] = true;
-      group.colorGroups.forEach(color => {
-        nextColors[group.key + "::" + color.key] = true;
+    etalaseGroups.forEach(etalase => {
+      nextEtalase[etalase.key] = true;
+
+      etalase.productGroups.forEach(product => {
+        const productKey = etalase.key + "::" + product.key;
+        nextProducts[productKey] = true;
+
+        product.colorGroups.forEach(color => {
+          nextColors[productKey + "::" + color.key] = true;
+        });
       });
     });
 
-    setCollapsed(next);
+    setCollapsedEtalase(nextEtalase);
+    setCollapsedProducts(nextProducts);
     setCollapsedColors(nextColors);
   }
 
@@ -381,7 +468,7 @@ export default function StockPage() {
   }
 
   return (
-    <section className="stock-page phase3b9a1-stock-page phase3b9b2a-r5-stock-accordion-page phase3b9b2a-r7-color-accordion-page">
+    <section className="stock-page phase3b9a1-stock-page phase3b9b2a-r5-stock-accordion-page phase3b9b2a-r7-color-accordion-page phase3b9b3g-stock-etalase-page">
       <div className="page-header stock-page-header">
         <div>
           <p className="eyebrow">Seller</p>
@@ -412,7 +499,7 @@ export default function StockPage() {
           type="search"
           value={query}
           onChange={event => setQuery(event.target.value)}
-          placeholder="Cari produk, SKU, warna, ukuran..."
+          placeholder="Cari etalase, produk, SKU, warna, ukuran..."
         />
 
         <select value={filter} onChange={event => setFilter(event.target.value as any)}>
@@ -427,172 +514,142 @@ export default function StockPage() {
         <button type="button" onClick={closeAllGroups}>Tutup Semua</button>
       </div>
 
-      {loading && (
-        <div className="stock-product-card">
-          Memuat data stok...
-        </div>
-      )}
+      {loading && <div className="stock-product-card">Memuat data stok...</div>}
+      {!loading && etalaseGroups.length === 0 && <div className="stock-product-card">Tidak ada data stok sesuai filter.</div>}
 
-      {!loading && groups.length === 0 && (
-        <div className="stock-product-card">
-          Tidak ada data stok sesuai filter.
-        </div>
-      )}
-
-      {!loading && groups.length > 0 && (
-        <div className="stock-accordion-list">
-          {groups.map(group => {
-            const isCollapsed = collapsed[group.key] ?? true;
+      {!loading && etalaseGroups.length > 0 && (
+        <div className="stock-etalase-list">
+          {etalaseGroups.map(etalase => {
+            const etalaseCollapsed = collapsedEtalase[etalase.key] ?? true;
 
             return (
-              <article key={group.key} className="stock-product-card">
+              <section key={etalase.key} className="stock-etalase-card">
                 <button
                   type="button"
-                  className="stock-product-summary-btn"
-                  onClick={() => toggleGroup(group.key)}
-                  aria-expanded={!isCollapsed}
+                  className="stock-etalase-summary-btn"
+                  onClick={() => toggleEtalase(etalase.key)}
+                  aria-expanded={!etalaseCollapsed}
                 >
-                  <span className="stock-product-toggle">{isCollapsed ? "+" : "-"}</span>
-
-                  <span className="stock-product-summary-main">
-                    <strong>{group.productName}</strong>
-                    <small>{group.skuProduct}</small>
+                  <span className="stock-etalase-toggle">{etalaseCollapsed ? "+" : "-"}</span>
+                  <span className="stock-etalase-main">
+                    <strong>Etalase: {etalase.etalaseName}</strong>
+                    <small>{etalase.totalProducts} produk - {etalase.totalVariants} varian - stok {etalase.totalStock}</small>
                   </span>
-
-                  <span className="stock-product-summary-meta">
-                    <span>{group.totalVariants} varian</span>
-                    <span>{group.colorGroups.length} warna</span>
-                    <span>stok {group.totalStock}</span>
-                    <span>HPP unit {formatCurrency(group.totalHppUnit)}</span>
-                    <span>nilai stok {formatCurrency(group.stockAssetValue)}</span>
+                  <span className="stock-etalase-meta">
+                    <span>{etalase.totalProducts} produk</span>
+                    <span>{etalase.totalVariants} varian</span>
+                    <span>stok {etalase.totalStock}</span>
+                    <span>HPP unit {formatCurrency(etalase.totalHppUnit)}</span>
+                    <span>nilai stok {formatCurrency(etalase.stockAssetValue)}</span>
                   </span>
-
-                  {(group.lowStockCount > 0 || group.emptyStockCount > 0) && (
-                    <span className="stock-product-warning">
-                      {group.emptyStockCount > 0 ? group.emptyStockCount + " habis" : ""}
-                      {group.emptyStockCount > 0 && group.lowStockCount > 0 ? " - " : ""}
-                      {group.lowStockCount > 0 ? group.lowStockCount + " menipis" : ""}
-                    </span>
-                  )}
                 </button>
 
-                {!isCollapsed && (
-                  <div className="stock-product-panel">
-                    {group.colorGroups.map(color => {
-                      const colorKey = group.key + "::" + color.key;
-                      const colorCollapsed = collapsedColors[colorKey] ?? true;
+                {!etalaseCollapsed && (
+                  <div className="stock-etalase-panel">
+                    {etalase.productGroups.map(product => {
+                      const productKey = etalase.key + "::" + product.key;
+                      const productCollapsed = collapsedProducts[productKey] ?? true;
 
                       return (
-                        <section key={colorKey} className="stock-color-card">
+                        <article key={productKey} className="stock-product-card">
                           <button
                             type="button"
-                            className="stock-color-summary-btn"
-                            onClick={() => toggleColor(colorKey)}
-                            aria-expanded={!colorCollapsed}
+                            className="stock-product-summary-btn"
+                            onClick={() => toggleProduct(productKey)}
+                            aria-expanded={!productCollapsed}
                           >
-                            <span className="stock-color-toggle">{colorCollapsed ? "+" : "-"}</span>
-
-                            <span className="stock-color-title">
-                              <strong>{color.colorName}</strong>
-                              <small>{color.totalVariants} ukuran / pola</small>
+                            <span className="stock-product-toggle">{productCollapsed ? "+" : "-"}</span>
+                            <span className="stock-product-summary-main">
+                              <strong>{product.productName}</strong>
+                              <small>{product.skuProduct}</small>
                             </span>
-
-                            <span className="stock-color-meta">
-                              <span>stok {color.totalStock}</span>
-                              <span>HPP unit {formatCurrency(color.totalHppUnit)}</span>
-                              <span>nilai stok {formatCurrency(color.stockAssetValue)}</span>
+                            <span className="stock-product-summary-meta">
+                              <span>{product.totalVariants} varian</span>
+                              <span>{product.colorGroups.length} warna</span>
+                              <span>stok {product.totalStock}</span>
+                              <span>HPP unit {formatCurrency(product.totalHppUnit)}</span>
+                              <span>nilai stok {formatCurrency(product.stockAssetValue)}</span>
                             </span>
-
-                            {(color.lowStockCount > 0 || color.emptyStockCount > 0) && (
-                              <span className="stock-color-warning">
-                                {color.emptyStockCount > 0 ? color.emptyStockCount + " habis" : ""}
-                                {color.emptyStockCount > 0 && color.lowStockCount > 0 ? " - " : ""}
-                                {color.lowStockCount > 0 ? color.lowStockCount + " menipis" : ""}
-                              </span>
-                            )}
                           </button>
 
-                          {!colorCollapsed && (
-                            <div className="stock-color-panel">
-                              <div className="table-wrap stock-table-wrap">
-                                <table className="stock-table stock-accordion-table">
-                                  <thead>
-                                    <tr>
-                                      <th>Varian</th>
-                                      <th>Ukuran / Pola</th>
-                                      <th>Harga Jual</th>
-                                      <th>HPP / Unit</th>
-                                      <th>Stok</th>
-                                      <th>Stok Minimum</th>
-                                      <th>Status</th>
-                                      <th>Aksi</th>
-                                    </tr>
-                                  </thead>
-                                  <tbody>
-                                    {color.rows.map(row => {
-                                      const status = stockStatus(row);
+                          {!productCollapsed && (
+                            <div className="stock-product-panel">
+                              {product.colorGroups.map(color => {
+                                const colorKey = productKey + "::" + color.key;
+                                const colorCollapsed = collapsedColors[colorKey] ?? true;
 
-                                      return (
-                                        <tr key={row.id}>
-                                          <td>
-                                            <strong>{row.variant_name || "-"}</strong>
-                                            <small>{row.sku_variant || "-"}</small>
-                                          </td>
-                                          <td>
-                                            <span>{[row.sizes?.size_name, row.sizes?.pattern_type].filter(Boolean).join(" / ") || "-"}</span>
-                                          </td>
-                                          <td>{formatCurrency(row.base_price)}</td>
-                                          <td>
-                                            <input
-                                              type="number"
-                                              min={0}
-                                              value={numberOrZero(row.hpp_cost)}
-                                              onChange={event => updateDraft(row.id, "hpp_cost", event.target.value)}
-                                              aria-label="HPP per unit"
-                                            />
-                                          </td>
-                                          <td>
-                                            <input
-                                              type="number"
-                                              min={0}
-                                              value={numberOrZero(row.stock_qty)}
-                                              onChange={event => updateDraft(row.id, "stock_qty", event.target.value)}
-                                              aria-label="Stok"
-                                            />
-                                          </td>
-                                          <td>
-                                            <input
-                                              type="number"
-                                              min={0}
-                                              value={numberOrZero(row.stock_min)}
-                                              onChange={event => updateDraft(row.id, "stock_min", event.target.value)}
-                                              aria-label="Stok minimum"
-                                            />
-                                          </td>
-                                          <td>
-                                            <span className={"stock-status " + status.toLowerCase()}>
-                                              {statusLabel(status)}
-                                            </span>
-                                          </td>
-                                          <td>
-                                            <button type="button" onClick={() => saveStock(row)} disabled={savingId === row.id}>
-                                              {savingId === row.id ? "Menyimpan..." : "Simpan"}
-                                            </button>
-                                          </td>
-                                        </tr>
-                                      );
-                                    })}
-                                  </tbody>
-                                </table>
-                              </div>
+                                return (
+                                  <section key={colorKey} className="stock-color-card">
+                                    <button
+                                      type="button"
+                                      className="stock-color-summary-btn"
+                                      onClick={() => toggleColor(colorKey)}
+                                      aria-expanded={!colorCollapsed}
+                                    >
+                                      <span className="stock-color-toggle">{colorCollapsed ? "+" : "-"}</span>
+                                      <span className="stock-color-title">
+                                        <strong>{color.colorName}</strong>
+                                        <small>{color.totalVariants} ukuran / pola</small>
+                                      </span>
+                                      <span className="stock-color-meta">
+                                        <span>stok {color.totalStock}</span>
+                                        <span>HPP unit {formatCurrency(color.totalHppUnit)}</span>
+                                        <span>nilai stok {formatCurrency(color.stockAssetValue)}</span>
+                                      </span>
+                                    </button>
+
+                                    {!colorCollapsed && (
+                                      <div className="stock-color-panel">
+                                        <div className="table-wrap stock-table-wrap">
+                                          <table className="stock-table stock-accordion-table">
+                                            <thead>
+                                              <tr>
+                                                <th>Varian</th>
+                                                <th>Ukuran / Pola</th>
+                                                <th>Harga Jual</th>
+                                                <th>HPP / Unit</th>
+                                                <th>Stok</th>
+                                                <th>Stok Minimum</th>
+                                                <th>Status</th>
+                                                <th>Aksi</th>
+                                              </tr>
+                                            </thead>
+                                            <tbody>
+                                              {color.rows.map(row => {
+                                                const status = stockStatus(row);
+                                                return (
+                                                  <tr key={row.id}>
+                                                    <td><strong>{row.variant_name || "-"}</strong><small>{row.sku_variant || "-"}</small></td>
+                                                    <td><span>{[row.sizes?.size_name, row.sizes?.pattern_type].filter(Boolean).join(" / ") || "-"}</span></td>
+                                                    <td>{formatCurrency(row.base_price)}</td>
+                                                    <td><input type="number" min={0} value={numberOrZero(row.hpp_cost)} onChange={event => updateDraft(row.id, "hpp_cost", event.target.value)} /></td>
+                                                    <td><input type="number" min={0} value={numberOrZero(row.stock_qty)} onChange={event => updateDraft(row.id, "stock_qty", event.target.value)} /></td>
+                                                    <td><input type="number" min={0} value={numberOrZero(row.stock_min)} onChange={event => updateDraft(row.id, "stock_min", event.target.value)} /></td>
+                                                    <td><span className={"stock-status " + status.toLowerCase()}>{statusLabel(status)}</span></td>
+                                                    <td>
+                                                      <button type="button" onClick={() => saveStock(row)} disabled={savingId === row.id}>
+                                                        {savingId === row.id ? "Menyimpan..." : "Simpan"}
+                                                      </button>
+                                                    </td>
+                                                  </tr>
+                                                );
+                                              })}
+                                            </tbody>
+                                          </table>
+                                        </div>
+                                      </div>
+                                    )}
+                                  </section>
+                                );
+                              })}
                             </div>
                           )}
-                        </section>
+                        </article>
                       );
                     })}
                   </div>
                 )}
-              </article>
+              </section>
             );
           })}
         </div>
@@ -600,3 +657,4 @@ export default function StockPage() {
     </section>
   );
 }
+
