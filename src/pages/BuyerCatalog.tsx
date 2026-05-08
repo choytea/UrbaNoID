@@ -4,6 +4,7 @@ import { supabase } from "../lib/supabase";
 import { BuyerCatalogProduct, CatalogVariant, CatalogVideo, Profile, ShippingExpedition, StoreProfile } from "../types";
 import { formatCurrency } from "../lib/utils";
 import { ProductDetailModal } from "../components/ProductDetailModal";
+import { ProductRatingSummary } from "../components/ProductRatingSummary";
 import { CartDrawer } from "../components/CartDrawer";
 import { CheckoutModal } from "../components/CheckoutModal";
 import {
@@ -451,6 +452,7 @@ export function BuyerCatalog({ session = null, profile = null }: Props) {
                 <h3>{product.product_name}</h3>
                 <p>{product.material_name} · {product.gramasi}</p>
                 <strong>{formatCurrency(product.min_price || 0)}</strong>
+                <ProductRatingSummary productId={product.product_id} compact className="phase3b10a3-catalog-rating-slot" />
                 <div className="mini-specs">
                   <span>{product.total_variants} varian</span>
                   <span>Stok {product.total_stock}</span>

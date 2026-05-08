@@ -1,6 +1,8 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type MouseEvent } from "react";
 import { BuyerCatalogProduct, CatalogImage, CatalogVariant, CatalogVideo, ShippingExpedition } from "../types";
 import { formatCurrency } from "../lib/utils";
+import { ProductRatingSummary } from "./ProductRatingSummary";
+import { ProductReviewList } from "./ProductReviewList";
 
 type Props = {
   product: BuyerCatalogProduct;
@@ -88,6 +90,37 @@ export function ProductDetailModal({
   const videoColors = rawVideos.map(v => v.color_name).filter(Boolean) as string[];
   const colors = useMemo(() => Array.from(new Set([...variantColors, ...videoColors])) as string[], [variants, rawVideos]);
 
+  function variantPriceValue(variant: CatalogVariant | undefined): number {
+    if (!variant) return Number(product.min_price || 0) || 0;
+    const finalPrice = Number(variant.final_price || 0);
+    const basePrice = Number((variant as any).base_price || 0);
+    if (Number.isFinite(finalPrice) && finalPrice > 0) return finalPrice;
+    if (Number.isFinite(basePrice) && basePrice > 0) return basePrice;
+    return Number(product.min_price || 0) || 0;
+  }
+
+  function isVariantAvailableForDefault(variant: CatalogVariant): boolean {
+    const status = String((variant as any).status || "AKTIF").toUpperCase();
+    return status !== "NONAKTIF" && Number(variant.stock_qty || 0) > 0;
+  }
+
+  function pickCatalogDefaultVariant(source: CatalogVariant[]): CatalogVariant | undefined {
+    if (!source.length) return undefined;
+
+    const available = source.filter(isVariantAvailableForDefault);
+    const candidates = available.length ? available : source;
+
+    return [...candidates].sort((a, b) => {
+      const priceDiff = variantPriceValue(a) - variantPriceValue(b);
+      if (priceDiff !== 0) return priceDiff;
+
+      const stockDiff = Number(b.stock_qty || 0) - Number(a.stock_qty || 0);
+      if (stockDiff !== 0) return stockDiff;
+
+      return String(a.variant_name || a.sku_variant || "").localeCompare(String(b.variant_name || b.sku_variant || ""));
+    })[0];
+  }
+
   function colorFromImage(img: CatalogImage): string {
     const byVariant = variants.find(v => v.variant_id === img.variant_id);
     if (byVariant?.color_name) return byVariant.color_name;
@@ -139,13 +172,21 @@ export function ProductDetailModal({
     return [...imageItems, ...videoItems];
   }, [rawImages, rawVideos, product.primary_image_url, product.product_name, variants, colors]);
 
-  const initialColor = galleryMedia[0]?.color_name || variants[0]?.color_name || colors[0] || "";
+  const defaultCatalogVariant = pickCatalogDefaultVariant(variants);
+  const initialColor = defaultCatalogVariant?.color_name || galleryMedia[0]?.color_name || variants[0]?.color_name || colors[0] || "";
+  const initialVariantId = defaultCatalogVariant?.variant_id || variants.find(v => (v.color_name || "") === initialColor)?.variant_id || variants[0]?.variant_id || "";
+  const initialMediaIndex = initialColor ? galleryMedia.findIndex(media => media.color_name === initialColor) : -1;
   const [selectedColor, setSelectedColor] = useState<string>(initialColor);
-  const [selectedVariantId, setSelectedVariantId] = useState<string>(() => {
-    const firstByColor = variants.find(v => (v.color_name || "") === initialColor);
-    return firstByColor?.variant_id || variants[0]?.variant_id || "";
-  });
-  const [mediaIndex, setMediaIndex] = useState(0);
+  const [selectedVariantId, setSelectedVariantId] = useState<string>(initialVariantId);
+  const [mediaIndex, setMediaIndex] = useState(initialMediaIndex >= 0 ? initialMediaIndex : 0);
+
+  useEffect(() => {
+    setSelectedColor(initialColor);
+    setSelectedVariantId(initialVariantId);
+    setMediaIndex(initialMediaIndex >= 0 ? initialMediaIndex : 0);
+    setQuantity(1);
+    setLocalMessage("");
+  }, [product.product_name, initialColor, initialVariantId, initialMediaIndex]);
 
   const filteredByColor = variants.filter(v => (v.color_name || "") === selectedColor);
   const variantOptions = filteredByColor.length ? filteredByColor : variants;
@@ -158,13 +199,55 @@ export function ProductDetailModal({
   const maxQuantity = Math.max(1, Number(activeVariant?.stock_qty || 0));
   const canBuy = !!activeVariant && Number(activeVariant.stock_qty || 0) > 0;
   const selectedShipping = shippingOptions.find(item => item.id === selectedShippingId) || null;
+  // Phase 3B.9E Buyer Image Magnifier
+  function handleBuyerImageMagnifierMove(event: MouseEvent<HTMLElement>) {
+    if (!currentMedia || currentMedia.type !== "image" || !currentMedia.url) return;
+
+    const gallery = event.currentTarget as HTMLElement;
+    const img = gallery.querySelector(":scope > img") as HTMLImageElement | null;
+
+    if (!img) {
+      gallery.classList.remove("buyer-image-magnifier-active");
+      return;
+    }
+
+    const rect = img.getBoundingClientRect();
+    const galleryRect = gallery.getBoundingClientRect();
+    const withinImage =
+      event.clientX >= rect.left &&
+      event.clientX <= rect.right &&
+      event.clientY >= rect.top &&
+      event.clientY <= rect.bottom;
+
+    if (!withinImage) {
+      gallery.classList.remove("buyer-image-magnifier-active");
+      return;
+    }
+
+    const x = ((event.clientX - rect.left) / rect.width) * 100;
+    const y = ((event.clientY - rect.top) / rect.height) * 100;
+    const lensLeft = event.clientX - galleryRect.left;
+    const lensTop = event.clientY - galleryRect.top;
+    const safeUrl = String(currentMedia.url).replace(/"/g, "%22");
+
+    gallery.style.setProperty("--buyer-magnifier-x", x.toFixed(2) + "%");
+    gallery.style.setProperty("--buyer-magnifier-y", y.toFixed(2) + "%");
+    gallery.style.setProperty("--buyer-magnifier-left", lensLeft.toFixed(0) + "px");
+    gallery.style.setProperty("--buyer-magnifier-top", lensTop.toFixed(0) + "px");
+    gallery.style.setProperty("--buyer-magnifier-image", `url("${safeUrl}")`);
+    gallery.classList.add("buyer-image-magnifier-active");
+  }
+
+  function handleBuyerImageMagnifierLeave(event: MouseEvent<HTMLElement>) {
+    event.currentTarget.classList.remove("buyer-image-magnifier-active");
+  }
 
   function chooseMedia(index: number) {
     setMediaIndex(index);
     const nextColor = galleryMedia[index]?.color_name;
     if (!nextColor || nextColor === selectedColor) return;
     setSelectedColor(nextColor);
-    const first = variants.find(v => v.color_name === nextColor);
+    const first = pickCatalogDefaultVariant(variants.filter(v => v.color_name === nextColor));
     if (first) setSelectedVariantId(first.variant_id);
   }
 
@@ -175,7 +258,7 @@ export function ProductDetailModal({
 
   function chooseColor(color: string) {
     setSelectedColor(color);
-    const first = variants.find(v => v.color_name === color);
+    const first = pickCatalogDefaultVariant(variants.filter(v => v.color_name === color));
     setSelectedVariantId(first?.variant_id || "");
     const firstMediaIndex = galleryMedia.findIndex(media => media.color_name === color);
     if (firstMediaIndex >= 0) setMediaIndex(firstMediaIndex);
@@ -186,7 +269,11 @@ export function ProductDetailModal({
   function changeVariant(variantId: string) {
     setSelectedVariantId(variantId);
     const variant = variants.find(v => v.variant_id === variantId);
-    if (variant?.color_name && variant.color_name !== selectedColor) chooseColor(variant.color_name);
+    if (variant?.color_name && variant.color_name !== selectedColor) {
+      setSelectedColor(variant.color_name);
+      const firstMediaIndex = galleryMedia.findIndex(media => media.color_name === variant.color_name);
+      if (firstMediaIndex >= 0) setMediaIndex(firstMediaIndex);
+    }
     setQuantity(1);
     setLocalMessage("");
   }
@@ -197,7 +284,7 @@ export function ProductDetailModal({
 
   function validateShipping() {
     if (false && (shippingOptions.length > 0 && !selectedShipping)) {
-      setLocalMessage("Ekspedisi dan ongkir aktual dipilih otomatis saat Checkout Pesanan.");
+      setLocalMessage("");
       return false;
     }
     return true;
@@ -238,7 +325,7 @@ export function ProductDetailModal({
       <div className="product-modal buyer-product-modal" onClick={event => event.stopPropagation()}>
         <button className="modal-close" onClick={onClose}>×</button>
 
-        <section className="modal-gallery buyer-modal-gallery">
+        <section className="modal-gallery buyer-modal-gallery" onMouseMove={handleBuyerImageMagnifierMove} onMouseLeave={handleBuyerImageMagnifierLeave}>
           {currentMedia?.type === "video" ? (
             <video className="buyer-main-video" src={currentMedia.url} controls playsInline preload="metadata" />
           ) : (
@@ -276,6 +363,7 @@ export function ProductDetailModal({
           </div>
           <h2>{product.product_name}</h2>
           <div className="price">{formatCurrency(activeVariant?.final_price || product.min_price || 0)}</div>
+          <ProductRatingSummary productId={product.product_id} className="phase3b10a3-detail-rating-slot" />
 
           {product.description && <iframe className="product-description-frame" title="Detail Produk" srcDoc={descriptionSrcDoc} sandbox="" />}
 
@@ -285,6 +373,7 @@ export function ProductDetailModal({
             <div><small>Fit / Pola</small><strong>{activeVariant?.pattern_type || "-"}</strong></div>
           </div>
 
+          <ProductReviewList productId={product.product_id} className="phase3b10a3-detail-review-list-slot" />
           <hr />
           <h3>Pilih varian, ekspedisi & jumlah</h3>
 
@@ -342,3 +431,4 @@ export function ProductDetailModal({
 
 
 // PHASE_3B_8_R3_PRODUCT_DETAIL_MANUAL_EXPEDITION_DISABLED
+

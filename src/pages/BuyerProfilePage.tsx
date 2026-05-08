@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Session } from "@supabase/supabase-js";
 import { supabase } from "../lib/supabase";
 import { formatCurrency } from "../lib/utils";
@@ -12,6 +12,25 @@ type Props = {
 
 type BuyerProfileTab = "profile" | "orders" | "chat" | "store";
 type BuyerOrderTab = "ALL" | "BELUM_BAYAR" | "KONFIRMASI" | "DIKEMAS" | "DIKIRIM" | "SELESAI" | "DIBATALKAN";
+type ProductReviewRow = {
+  id?: string;
+  order_id?: string | null;
+  order_item_id?: string | null;
+  buyer_id?: string | null;
+  product_id?: string | null;
+  variant_id?: string | null;
+  rating?: number | null;
+  comment?: string | null;
+  review_text?: string | null;
+  status?: string | null;
+  is_published?: boolean | null;
+  created_at?: string | null;
+};
+
+type ProductReviewDraft = {
+  rating: number;
+  comment: string;
+};
 
 const BUYER_PROFILE_TAB_EVENT = "urbanoid-buyer-profile-tab";
 
@@ -265,6 +284,9 @@ export function BuyerProfilePage({ session, profile, onProfileUpdated }: Props) 
     avatar_url: profile?.avatar_url || "",
   });
   const [orders, setOrders] = useState<OrderRow[]>([]);
+  const [productReviews, setProductReviews] = useState<Record<string, ProductReviewRow>>({});
+  const [reviewDrafts, setReviewDrafts] = useState<Record<string, ProductReviewDraft>>({});
+  const [reviewSubmittingId, setReviewSubmittingId] = useState("");
   const [items, setItems] = useState<OrderItemRow[]>([]);
   const [payments, setPayments] = useState<PaymentRow[]>([]);
   const [shipments, setShipments] = useState<ShipmentRow[]>([]);
@@ -348,6 +370,37 @@ export function BuyerProfilePage({ session, profile, onProfileUpdated }: Props) 
     }
   }, [payments, selectedPaymentId, selectedOrder]);
 
+  
+  async function loadProductReviewsForOrderItems() {
+    const itemIds = (items || []).map(row => String(row.id || "")).filter(Boolean);
+
+    if (!session?.user?.id || !selectedOrder?.id || itemIds.length === 0) {
+      setProductReviews({});
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from("product_reviews")
+      .select("*")
+      .in("order_item_id", itemIds);
+
+    if (error) {
+      console.warn("Phase 3B.10A review load warning:", error.message);
+      return;
+    }
+
+    const map: Record<string, ProductReviewRow> = {};
+    (data || []).forEach((row: any) => {
+      const key = String(row.order_item_id || "");
+      if (key) map[key] = row as ProductReviewRow;
+    });
+
+    setProductReviews(map);
+  }
+
+  useEffect(() => {
+    void loadProductReviewsForOrderItems();
+  }, [selectedOrder?.id, items.length, session?.user?.id]);
   function setTab(tab: BuyerProfileTab) {
     const nextTab = normalizeBuyerProfileTab(tab);
     setActiveTab(nextTab);
@@ -601,6 +654,151 @@ export function BuyerProfilePage({ session, profile, onProfileUpdated }: Props) 
     setSelectedOrder(prev => prev ? { ...prev, payment_status: "MENUNGGU_KONFIRMASI" } : prev);
   }
 
+  
+  function reviewDraftFor(row: OrderItemRow): ProductReviewDraft {
+    const key = String(row.id || "");
+    return reviewDrafts[key] || { rating: 5, comment: "" };
+  }
+
+  function setReviewRating(row: OrderItemRow, rating: number) {
+    const key = String(row.id || "");
+    if (!key) return;
+
+    setReviewDrafts(prev => ({
+      ...prev,
+      [key]: {
+        ...(prev[key] || { rating: 5, comment: "" }),
+        rating,
+      },
+    }));
+  }
+
+  function setReviewComment(row: OrderItemRow, comment: string) {
+    const key = String(row.id || "");
+    if (!key) return;
+
+    setReviewDrafts(prev => ({
+      ...prev,
+      [key]: {
+        ...(prev[key] || { rating: 5, comment: "" }),
+        comment,
+      },
+    }));
+  }
+
+  async function submitProductReview(item: OrderItemRow) {
+  /* Phase 3B.10A-3 R4 Review Submit Frontend Fix */
+  const itemId = String((item as any).id || "");
+  const draft = (reviewDrafts as any)[itemId] || {};
+  const rating = Math.max(1, Math.min(5, Number(draft.rating || 5)));
+  const reviewText = String(draft.review_text || draft.comment || "").trim();
+
+  if (!session?.user?.id) {
+    const text = "Silakan login buyer terlebih dahulu untuk mengirim ulasan.";
+    setMessage(text);
+    alert(text);
+    return;
+  }
+
+  if (!selectedOrder?.id) {
+    const text = "Pilih pesanan terlebih dahulu sebelum mengirim ulasan.";
+    setMessage(text);
+    alert(text);
+    return;
+  }
+
+  if (!phase3b8IsCompleted(selectedOrder)) {
+    const text = "Ulasan hanya dapat dikirim setelah pesanan selesai atau diterima.";
+    setMessage(text);
+    alert(text);
+    return;
+  }
+
+  if (!itemId) {
+    const text = "Data item pesanan tidak lengkap. Ulasan belum dapat dikirim.";
+    setMessage(text);
+    alert(text);
+    return;
+  }
+
+  if (!reviewText) {
+    const text = "Tulis ulasan singkat sebelum mengirim.";
+    setMessage(text);
+    alert(text);
+    return;
+  }
+
+  setMessage("Mengirim ulasan produk...");
+
+  const productId = String((item as any).product_id || "");
+  const variantId = (item as any).variant_id || null;
+
+  const payloadR4 = {
+    p_order_id: selectedOrder.id,
+    p_order_item_id: itemId,
+    p_product_id: productId || null,
+    p_variant_id: variantId,
+    p_rating: rating,
+    p_comment: reviewText,
+  };
+
+  let result = await supabase.rpc("buyer_submit_product_review", payloadR4 as any);
+
+  if (result.error) {
+    const fallbackPayload = {
+      p_order_id: selectedOrder.id,
+      p_order_item_id: itemId,
+      p_product_id: productId || null,
+      p_variant_id: variantId,
+      p_rating: rating,
+      p_review_text: reviewText,
+    };
+
+    result = await supabase.rpc("buyer_submit_product_review", fallbackPayload as any);
+  }
+
+  if (result.error) {
+    const text = "Gagal mengirim ulasan: " + result.error.message;
+    setMessage(text);
+    alert(text);
+    return;
+  }
+
+  const rawData = (result as any).data;
+  const savedReview = Array.isArray(rawData) ? rawData[0] : rawData;
+
+  const nextReview = {
+    id: savedReview?.id || "local-" + itemId,
+    order_id: selectedOrder.id,
+    order_item_id: itemId,
+    product_id: savedReview?.product_id || productId || null,
+    variant_id: savedReview?.variant_id || variantId || null,
+    buyer_id: savedReview?.buyer_id || session.user.id,
+    rating,
+    review_text: savedReview?.review_text || savedReview?.comment || reviewText,
+    is_published: true,
+    created_at: savedReview?.created_at || new Date().toISOString(),
+  };
+
+  setProductReviews(prev => ({
+    ...prev,
+    [itemId]: nextReview as any,
+  }));
+
+  setReviewDrafts(prev => ({
+    ...prev,
+    [itemId]: {
+      ...(prev as any)[itemId],
+      rating,
+      review_text: reviewText,
+      comment: reviewText,
+    },
+  }));
+
+  const successText = "Ulasan berhasil tersimpan. Terima kasih atas ulasan Anda.";
+  setMessage(successText);
+  alert(successText);
+}
   async function confirmReceived() {
     if (!selectedOrder) return;
     if (!phase3b8CanConfirmReceived(selectedOrder, selectedShipment)) {
@@ -865,7 +1063,53 @@ export function BuyerProfilePage({ session, profile, onProfileUpdated }: Props) 
                       <tbody>
                         {items.map(item => (
                           <tr key={item.id}>
-                            <td>{item.product_name || "-"}</td>
+                            <td>
+  <strong>{item.product_name || "-"}</strong>
+  {(item as any).sku_variant && <small className="phase3b10a-review-sku">{(item as any).sku_variant}</small>}
+
+  {selectedOrder && phase3b8IsCompleted(selectedOrder) && item.id && (
+    <div className="phase3b10a-review-box">
+      {productReviews[String(item.id)] ? (
+        <div className="phase3b10a-review-done">
+          <span>Sudah diulas dan tersimpan</span>
+          <strong>{"★".repeat(Number(productReviews[String(item.id)]?.rating || 0))}{"☆".repeat(5 - Number(productReviews[String(item.id)]?.rating || 0))}</strong>
+          {(productReviews[String(item.id)]?.review_text || productReviews[String(item.id)]?.comment) && <p>{productReviews[String(item.id)]?.review_text || productReviews[String(item.id)]?.comment}</p>}
+        </div>
+      ) : (
+        <div className="phase3b10a-review-form">
+          <small>Beri ulasan produk</small>
+          <div className="phase3b10a-stars" aria-label="Rating bintang">
+            {[1, 2, 3, 4, 5].map(star => (
+              <button
+                key={star}
+                type="button"
+                className={star <= reviewDraftFor(item).rating ? "active" : ""}
+                onClick={() => setReviewRating(item, star)}
+                aria-label={`${star} bintang`}
+              >
+                ★
+              </button>
+            ))}
+          </div>
+          <textarea
+            value={reviewDraftFor(item).comment}
+            onChange={event => setReviewComment(item, event.target.value)}
+            placeholder="Tulis ulasan singkat untuk produk ini..."
+            rows={2}
+          />
+          <button
+            type="button"
+            className="phase3b10a-submit-review-btn"
+            disabled={reviewSubmittingId === String(item.id)}
+            onClick={() => submitProductReview(item)}
+          >
+            {reviewSubmittingId === String(item.id) ? "Mengirim..." : "Kirim Ulasan"}
+          </button>
+        </div>
+      )}
+    </div>
+  )}
+</td>
                             <td>{[item.color_name, item.size_name, item.pattern_type].filter(Boolean).join(" / ")}</td>
                             <td>{item.qty || 0}</td>
                             <td>{formatCurrency(Number(item.subtotal || 0))}</td>
