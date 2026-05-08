@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Session } from "@supabase/supabase-js";
 import { supabase } from "../lib/supabase";
 import { CartItem, cartShippingCost, cartSubtotal, cartWeight } from "../lib/cart";
@@ -307,9 +307,9 @@ export function CheckoutModal({
         <div className="checkout-head">
           <div>
             <h2>Checkout Pesanan</h2>
-            <p>{items.length} item Â· {weight} gram Â· Total {formatCurrency(grandTotal)}</p>
+            <p>{items.length} item  -  {weight} gram  -  Total {formatCurrency(grandTotal)}</p>
           </div>
-          <button onClick={onClose}>Ã—</button>
+          <button onClick={onClose}> x </button>
         </div>
 
         {!session ? (
@@ -339,7 +339,7 @@ export function CheckoutModal({
               >
                 {buyerAddresses.map(item => (
                   <option key={item.id} value={item.id}>
-                    {item.is_main ? "Utama - " : ""}{item.label} · {item.city || "-"} {item.postal_code ? `· ${item.postal_code}` : ""}
+                    {item.is_main ? "Utama - " : ""}{item.label}  -  {item.city || "-"} {item.postal_code ? ` -  ${item.postal_code}` : ""}
                   </option>
                 ))}
               </select>
@@ -365,7 +365,7 @@ export function CheckoutModal({
                   <option value="">{shippingOptions.length ? "- Pilih Ekspedisi -" : "Ekspedisi belum tersedia"}</option>
                   {shippingOptions.map(option => (
                     <option key={option.id} value={option.id}>
-                      {option.name}{option.service_name ? ` / ${option.service_name}` : ""} â€” {formatCurrency(option.base_cost || 0)} {option.etd_text ? `(${option.etd_text})` : ""}
+                      {option.name}{option.service_name ? ` / ${option.service_name}` : ""} - {formatCurrency(option.base_cost || 0)} {option.etd_text ? `(${option.etd_text})` : ""}
                     </option>
                   ))}
                 </select>
@@ -382,7 +382,7 @@ export function CheckoutModal({
               <h3>Ringkasan Pesanan</h3>
               {items.map(item => (
                 <div key={item.id}>
-                  <span>{item.product_name} Â· {item.color_name} / {item.size_name} / {item.pattern_type} Ã— {item.quantity}</span>
+                  <span>{item.product_name}  -  {item.color_name} / {item.size_name} / {item.pattern_type}  x  {item.quantity}</span>
                   <strong>{formatCurrency(item.quantity * item.unit_price)}</strong>
                 </div>
               ))}
