@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import { Session } from "@supabase/supabase-js";
 import { supabase } from "../lib/supabase";
 import { formatCurrency } from "../lib/utils";
@@ -722,6 +722,16 @@ export function BuyerProfilePage({ session, profile, onProfileUpdated }: Props) 
         <button className={activeTab === "profile" ? "active" : ""} onClick={() => setTab("profile")}>Profil</button>
         <button className={activeTab === "orders" ? "active" : ""} onClick={() => setTab("orders")}>Pesanan Saya</button>
         <button className={activeTab === "chat" ? "active" : ""} onClick={() => setTab("chat")}>Chat Pesanan</button>
+
+          <button
+            type="button"
+            className="buyer-address-tab-btn"
+            onClick={() => {
+              window.location.hash = "/buyer-addresses";
+            }}
+          >
+            Atur Alamat
+          </button>
         <button className={activeTab === "store" ? "active" : ""} onClick={() => setTab("store")}>Toko</button>
       </div>
 
@@ -793,7 +803,7 @@ export function BuyerProfilePage({ session, profile, onProfileUpdated }: Props) 
                   <strong>{displayOrderNo(order)}</strong>
                   <span>{formatDate(order.created_at)}</span>
                   <em>{formatCurrency(Number(order.grand_total || order.total_amount || 0))}</em>
-                  <small>{statusLabel(order.order_status)} · {statusLabel(order.payment_status)} · {statusLabel(order.shipping_status)}</small>
+                  <small>{statusLabel(order.order_status)} Â· {statusLabel(order.payment_status)} Â· {statusLabel(order.shipping_status)}</small>
                 </button>
               ))}
               {filteredOrders.length === 0 && <div className="empty-state">Belum ada pesanan pada filter ini.</div>}
@@ -944,7 +954,7 @@ export function BuyerProfilePage({ session, profile, onProfileUpdated }: Props) 
             <div className="chat-box">
               {messages.map(msg => (
                 <div key={msg.id} className={`chat-bubble ${msg.sender_role === "BUYER" ? "buyer" : "seller"}`}>
-                  <small>{msg.sender_role || "USER"} · {formatDate(msg.created_at)}</small>
+                  <small>{msg.sender_role || "USER"} Â· {formatDate(msg.created_at)}</small>
                   <span>{msg.message}</span>
                 </div>
               ))}
@@ -981,7 +991,7 @@ export function BuyerProfilePage({ session, profile, onProfileUpdated }: Props) 
                 <h2>{selectedProof.title}</h2>
                 <p>Preview bukti pembayaran Anda.</p>
               </div>
-              <button type="button" className="modal-close-btn" onClick={() => setSelectedProof(null)}>×</button>
+              <button type="button" className="modal-close-btn" onClick={() => setSelectedProof(null)}>Ã—</button>
             </div>
             <div className="proof-viewer-body">
               {selectedProof.isImage ? (
@@ -1003,3 +1013,4 @@ export function BuyerProfilePage({ session, profile, onProfileUpdated }: Props) 
 }
 
 export default BuyerProfilePage;
+
