@@ -1485,6 +1485,84 @@ async function uploadColorImages(
   );
 }
 
+function ProductMatrixAutofillField({
+  value,
+  options,
+  getLabel,
+  onChange,
+  placeholder,
+}: {
+  value: string | null | undefined;
+  options: MasterRow[];
+  getLabel: (row: MasterRow) => string;
+  onChange: (id: string) => void;
+  placeholder: string;
+}) {
+  const selected = options.find(row => String(row.id) === String(value || ""));
+  const selectedLabel = selected ? getLabel(selected) : "";
+  const [text, setText] = useState(selectedLabel);
+  const [listId] = useState(() => `pm-autofill-${Math.random().toString(36).slice(2)}`);
+
+  useEffect(() => {
+    setText(selectedLabel);
+  }, [selectedLabel]);
+
+  function findExactMatch(label: string) {
+    const normalized = String(label || "").trim().toLowerCase();
+    if (!normalized) return null;
+
+    return options.find(row => getLabel(row).trim().toLowerCase() === normalized) || null;
+  }
+
+  function commit(label: string) {
+    const normalized = String(label || "").trim();
+
+    if (!normalized) {
+      onChange("");
+      setText("");
+      return;
+    }
+
+    const match = findExactMatch(normalized);
+    if (match) {
+      onChange(String(match.id));
+      setText(getLabel(match));
+      return;
+    }
+
+    setText(selectedLabel);
+  }
+
+  return (
+    <div className="product-matrix-autofill">
+      <input
+        value={text}
+        list={listId}
+        onChange={event => {
+          const next = event.target.value;
+          setText(next);
+          const match = findExactMatch(next);
+          if (match) onChange(String(match.id));
+          if (!next.trim()) onChange("");
+        }}
+        onBlur={() => commit(text)}
+        onKeyDown={event => {
+          if (event.key === "Enter") {
+            event.preventDefault();
+            commit(text);
+          }
+        }}
+        placeholder={placeholder}
+      />
+      <datalist id={listId}>
+        {options.map(row => {
+          const label = getLabel(row);
+          return label ? <option key={row.id} value={label} /> : null;
+        })}
+      </datalist>
+    </div>
+  );
+}
 function ProductModal({
   data,
   master,
@@ -1567,10 +1645,13 @@ function ProductModal({
           </label>
           <label>
             Bahan
-            <select value={data.material_id} onChange={e => setField("material_id", e.target.value)}>
-              <option value="">- Pilih -</option>
-              {master.materials.map(row => <option key={row.id} value={row.id}>{row.name}</option>)}
-            </select>
+            <ProductMatrixAutofillField
+              value={data.material_id}
+              options={master.materials}
+              getLabel={row => row.name || ""}
+              onChange={value => setField("material_id", value)}
+              placeholder="Cari bahan..."
+            />
           </label>
           <label>
             Gramasi
@@ -1578,14 +1659,13 @@ function ProductModal({
           </label>
           <label className="wide">
             Jenis Model
-            <select value={data.model_id} onChange={e => setField("model_id", e.target.value)}>
-              <option value="">- Pilih -</option>
-              {master.product_models.map(row => (
-                <option key={row.id} value={row.id}>
-                  {[row.model_type, row.print_type, row.motif, row.theme].filter(Boolean).join(" / ")}
-                </option>
-              ))}
-            </select>
+            <ProductMatrixAutofillField
+              value={data.model_id}
+              options={master.product_models}
+              getLabel={row => [row.model_type, row.print_type, row.motif, row.theme].filter(Boolean).join(" / ")}
+              onChange={value => setField("model_id", value)}
+              placeholder="Cari jenis model..."
+            />
           </label>
           <label className="wide">
             Deskripsi
@@ -1648,10 +1728,13 @@ function VariantModal({
         <div className="form-grid">
           <label>
             Warna
-            <select value={data.color_id} onChange={e => setField("color_id", e.target.value)}>
-              <option value="">- Pilih -</option>
-              {master.colors.map(row => <option key={row.id} value={row.id}>{row.name}</option>)}
-            </select>
+            <ProductMatrixAutofillField
+              value={data.color_id}
+              options={master.colors}
+              getLabel={row => row.name || ""}
+              onChange={value => setField("color_id", value)}
+              placeholder="Cari warna..."
+            />
           </label>
           <label>
             Ukuran / Pola
