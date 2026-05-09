@@ -268,7 +268,307 @@ async function resolvePaymentProofUrls(rows: PaymentRow[]): Promise<PaymentRow[]
  }));
 }
 
-export function BuyerProfilePage({ session, profile, onProfileUpdated }: Props) {
+export 
+type Phase3B10DPaymentAccountClean = {
+  id: string;
+  payment_type: string;
+  bank_name: string;
+  account_number: string | null;
+  account_holder: string;
+  note: string | null;
+  qris_image_url: string | null;
+  is_active: boolean;
+  sort_order: number;
+};
+
+function phase3b10dCleanFormatCurrency(value: unknown): string {
+  const num = Number(value || 0);
+  if (!Number.isFinite(num) || num <= 0) return "RP 0";
+  return new Intl.NumberFormat("id-ID", {
+    style: "currency",
+    currency: "IDR",
+    maximumFractionDigits: 0,
+  }).format(num).replace("Rp", "RP");
+}
+
+function phase3b10dCleanOrderNo(order: any): string {
+  return String(
+    order?.order_no ||
+    order?.order_number ||
+    order?.invoice_no ||
+    order?.code ||
+    order?.id ||
+    "ID Pesanan"
+  );
+}
+
+function phase3b10dCleanOrderTotal(order: any, paymentForm: any): number {
+  const candidates = [
+    order?.grand_total,
+    order?.total_amount,
+    order?.total,
+    order?.amount,
+    order?.payment_amount,
+    paymentForm?.transfer_amount,
+  ];
+
+  for (const item of candidates) {
+    const num = Number(String(item ?? "").replace(/[^\d.-]/g, ""));
+    if (Number.isFinite(num) && num > 0) return num;
+  }
+
+  return 0;
+}
+
+function phase3b10dCleanAccountLabel(account: Phase3B10DPaymentAccountClean): string {
+  const number = account.account_number ? ` - ${account.account_number}` : "";
+  return `${account.bank_name}${number} - ${account.account_holder}`;
+}
+
+function Phase3B10DBuyerCleanPaymentInstruction({
+  selectedOrder,
+  paymentForm,
+  setPaymentForm,
+}: {
+  selectedOrder: any;
+  paymentForm: any;
+  setPaymentForm: (value: any) => void;
+}) {
+  const [method, setMethod] = useState<"QRIS" | "BANK_TRANSFER">("QRIS");
+  const [accounts, setAccounts] = useState<Phase3B10DPaymentAccountClean[]>([]);
+  const [selectedAccountId, setSelectedAccountId] = useState("");
+  const [qrisOpen, setQrisOpen] = useState(false);
+  const [notice, setNotice] = useState("");
+
+  const fallbackBank: Phase3B10DPaymentAccountClean = {
+    id: "fallback-bca",
+    payment_type: "BANK_TRANSFER",
+    bank_name: "BCA",
+    account_number: "639593157",
+    account_holder: "Hadi Sukoco / UrbaNoID Official Store",
+    note: "Transfer BCA",
+    qris_image_url: null,
+    is_active: true,
+    sort_order: 10,
+  };
+
+  const fallbackQris: Phase3B10DPaymentAccountClean = {
+    id: "fallback-qris",
+    payment_type: "QRIS",
+    bank_name: "QRIS",
+    account_number: null,
+    account_holder: "URBANOID OFFICIAL STORE, FASHION",
+    note: "QRIS resmi UrbaNoID",
+    qris_image_url: "/payments/urbanoid-qris.jpeg",
+    is_active: true,
+    sort_order: 1,
+  };
+
+  const orderNo = phase3b10dCleanOrderNo(selectedOrder);
+  const total = phase3b10dCleanOrderTotal(selectedOrder, paymentForm);
+  const totalText = phase3b10dCleanFormatCurrency(total);
+
+  useEffect(() => {
+    // QRIS menjadi default pertama setiap ganti pesanan.
+    setMethod("QRIS");
+  }, [selectedOrder?.id, selectedOrder?.order_no, selectedOrder?.order_number]);
+
+  useEffect(() => {
+    let alive = true;
+
+    async function loadPaymentAccounts() {
+      setNotice("");
+
+      const { data, error } = await supabase
+        .from("store_payment_accounts")
+        .select("id,payment_type,bank_name,account_number,account_holder,note,qris_image_url,is_active,sort_order")
+        .eq("is_active", true)
+        .order("sort_order", { ascending: true })
+        .order("created_at", { ascending: true });
+
+      if (!alive) return;
+
+      if (error) {
+        setNotice("Rekening pembayaran dinamis belum terbaca. Aplikasi memakai fallback sementara.");
+        setAccounts([fallbackQris, fallbackBank]);
+        return;
+      }
+
+      const list = Array.isArray(data) ? (data as Phase3B10DPaymentAccountClean[]) : [];
+
+      if (!list.length) {
+        setAccounts([fallbackQris, fallbackBank]);
+        return;
+      }
+
+      setAccounts(list);
+    }
+
+    loadPaymentAccounts();
+
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const qrisAccount =
+    accounts.find((item) => item.payment_type === "QRIS" && item.is_active) || fallbackQris;
+
+  const bankAccounts = accounts.filter(
+    (item) =>
+      item.is_active &&
+      (item.payment_type === "BANK_TRANSFER" || item.payment_type === "EWALLET") &&
+      item.account_number
+  );
+
+  const safeBankAccounts = bankAccounts.length ? bankAccounts : [fallbackBank];
+
+  const selectedBank =
+    safeBankAccounts.find((item) => item.id === selectedAccountId) || safeBankAccounts[0];
+
+  useEffect(() => {
+    if (!selectedBank?.id) return;
+    if (!selectedAccountId) setSelectedAccountId(selectedBank.id);
+  }, [selectedBank?.id, selectedAccountId]);
+
+  useEffect(() => {
+    const qrisLabel = `QRIS - ${qrisAccount.account_holder}`;
+    const bankLabel = selectedBank ? phase3b10dCleanAccountLabel(selectedBank) : "";
+
+    const nextBankValue = method === "QRIS" ? qrisLabel : bankLabel;
+
+    if (!nextBankValue) return;
+
+    setPaymentForm((prev: any) => {
+      if (prev?.payer_bank === nextBankValue) return prev;
+      return { ...prev, payer_bank: nextBankValue };
+    });
+  }, [method, selectedBank?.id, qrisAccount.account_holder, setPaymentForm]);
+
+  function downloadQris() {
+    const href = qrisAccount.qris_image_url || "/payments/urbanoid-qris.jpeg";
+    const link = document.createElement("a");
+    link.href = href;
+    link.download = "urbanoid-qris.jpeg";
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  }
+
+  function copyText(text: string) {
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(text).catch(() => undefined);
+      return;
+    }
+
+    const input = document.createElement("input");
+    input.value = text;
+    document.body.appendChild(input);
+    input.select();
+    document.execCommand("copy");
+    input.remove();
+  }
+
+  return (
+    <div className="phase3b10d-clean-payment-panel" data-phase3b10d-clean-payment-panel="true">
+      <label className="phase3b10d-clean-field">
+        Pilih Cara Pembayaran
+        <select value={method} onChange={(e) => setMethod(e.target.value === "BANK_TRANSFER" ? "BANK_TRANSFER" : "QRIS")}>
+          <option value="QRIS">QRIS</option>
+          <option value="BANK_TRANSFER">Bank Transfer</option>
+        </select>
+      </label>
+
+      {notice ? <div className="phase3b10d-clean-notice">{notice}</div> : null}
+
+      {method === "QRIS" ? (
+        <div className="phase3b10d-clean-qris-card">
+          <div className="phase3b10d-clean-qris-image-box">
+            <img src={qrisAccount.qris_image_url || "/payments/urbanoid-qris.jpeg"} alt="QRIS UrbaNoID" />
+          </div>
+
+          <div className="phase3b10d-clean-payment-info">
+            <h4>Instruksi Pembayaran QRIS</h4>
+            <div className="phase3b10d-clean-merchant">{qrisAccount.account_holder}</div>
+            <div className="phase3b10d-clean-total-label">Jumlah Pembayaran</div>
+            <div className="phase3b10d-clean-total">{totalText}</div>
+            <p>
+              Scan QRIS ini, lalu masukkan nominal sesuai total bayar ({totalText}) pada halaman pesanan ({orderNo}).
+              Setelah pembayaran berhasil, upload bukti pembayaran.
+            </p>
+
+            <div className="phase3b10d-clean-actions">
+              <button type="button" onClick={() => setQrisOpen(true)}>Lihat QRIS</button>
+              <button type="button" className="secondary" onClick={downloadQris}>Download QRIS</button>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="phase3b10d-clean-bank-card">
+          <h4>Instruksi Pembayaran Bank Transfer</h4>
+
+          <div className="phase3b10d-clean-total-label">Jumlah Pembayaran</div>
+          <div className="phase3b10d-clean-total">{totalText}</div>
+
+          <label className="phase3b10d-clean-field">
+            Pilih Rekening Tujuan
+            <select value={selectedBank?.id || ""} onChange={(e) => setSelectedAccountId(e.target.value)}>
+              {safeBankAccounts.map((account) => (
+                <option value={account.id} key={account.id}>
+                  {phase3b10dCleanAccountLabel(account)}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          {selectedBank ? (
+            <div className="phase3b10d-clean-bank-detail">
+              <div className="phase3b10d-clean-bank-name">{selectedBank.bank_name}</div>
+              <div className="phase3b10d-clean-bank-number">{selectedBank.account_number}</div>
+              <div className="phase3b10d-clean-bank-holder">a.n. {selectedBank.account_holder}</div>
+              {selectedBank.note ? <div className="phase3b10d-clean-bank-note">{selectedBank.note}</div> : null}
+            </div>
+          ) : null}
+
+          <p>
+            Transfer sesuai Jumlah Pembayaran ({totalText}) pada halaman pesanan ({orderNo}).
+            Setelah pembayaran berhasil, upload bukti pembayaran.
+          </p>
+
+          <div className="phase3b10d-clean-actions">
+            <button type="button" onClick={() => selectedBank?.account_number && copyText(selectedBank.account_number)}>
+              Copy Nomor Rekening
+            </button>
+            <button type="button" className="secondary" onClick={() => selectedBank && copyText(phase3b10dCleanAccountLabel(selectedBank))}>
+              Copy Detail Rekening
+            </button>
+          </div>
+        </div>
+      )}
+
+      {qrisOpen ? (
+        <div className="phase3b10d-clean-modal" onClick={() => setQrisOpen(false)}>
+          <div className="phase3b10d-clean-modal-card" onClick={(e) => e.stopPropagation()}>
+            <button type="button" className="phase3b10d-clean-modal-close" onClick={() => setQrisOpen(false)}>x</button>
+            <h3>QRIS Resmi UrbaNoID</h3>
+            <p>{qrisAccount.account_holder}</p>
+            <img src={qrisAccount.qris_image_url || "/payments/urbanoid-qris.jpeg"} alt="QRIS UrbaNoID" />
+            <div className="phase3b10d-clean-modal-note">
+              Scan QRIS ini, lalu masukkan nominal sesuai total bayar ({totalText}) pada halaman pesanan ({orderNo}).
+              Setelah pembayaran berhasil, upload bukti pembayaran.
+            </div>
+            <div className="phase3b10d-clean-actions">
+              <button type="button" onClick={downloadQris}>Download QRIS</button>
+              <button type="button" className="secondary" onClick={() => setQrisOpen(false)}>Tutup</button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function BuyerProfilePage({ session, profile, onProfileUpdated }: Props) {
  const [activeTab, setActiveTab] = useState<BuyerProfileTab>(() => normalizeBuyerProfileTab(localStorage.getItem("urbanoid_buyer_profile_tab")));
  const [orderTab, setOrderTab] = useState<BuyerOrderTab>("ALL");
  const [form, setForm] = useState({
@@ -1122,6 +1422,11 @@ export function BuyerProfilePage({ session, profile, onProfileUpdated }: Props) 
  <form className="payment-confirm-card" onSubmit={submitPaymentConfirmation}>
  <h3>Pembayaran & Konfirmasi</h3>
  <p className="muted-text">Upload bukti transfer agar seller dapat memverifikasi pembayaran dan mulai memproses pesanan.</p>
+<Phase3B10DBuyerCleanPaymentInstruction
+  selectedOrder={selectedOrder}
+  paymentForm={paymentForm}
+  setPaymentForm={setPaymentForm}
+/>
 
  {selectedPayment && (
  <div className="payment-current-status">

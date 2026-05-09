@@ -9717,3 +9717,1090 @@ select[data-phase3b7w-r13-select-only='true'] {
     width: calc(100vw - 24px);
   }
 }
+
+/* Phase 3B.10D-R1 finance note marker: ongkir adalah dana titipan/pass-through untuk ekspedisi. */
+
+/* Phase 3B.10D-R1 Disable COD + QRIS Manual */
+.phase3b10d-payment-note {
+  margin-top: 8px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  color: #1e3a8a;
+  font-size: 13px;
+  line-height: 1.45;
+  font-weight: 700;
+}
+
+.phase3b10d-finance-note {
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  color: #334155;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+/* Phase 3B.10D-R2 Buyer Payment Instruction Display */
+.phase3b10d-payment-instruction-panel {
+  margin: 12px 0 16px;
+  padding: 14px;
+  border-radius: 16px;
+  border: 1px solid #bfdbfe;
+  background: #eff6ff;
+  color: #0f172a;
+  font-weight: 800;
+}
+
+.phase3b10d-payment-instruction-title {
+  font-size: 16px;
+  font-weight: 950;
+  color: #1e3a8a;
+  margin-bottom: 10px;
+}
+
+.phase3b10d-payment-instruction-grid {
+  display: grid;
+  grid-template-columns: 170px 1fr;
+  gap: 14px;
+  align-items: start;
+}
+
+.phase3b10d-qris-preview-wrap {
+  background: #fff;
+  border: 1px solid #dbeafe;
+  border-radius: 14px;
+  padding: 8px;
+}
+
+.phase3b10d-qris-preview {
+  display: block;
+  width: 100%;
+  max-height: 220px;
+  object-fit: contain;
+  border-radius: 10px;
+}
+
+.phase3b10d-payment-merchant {
+  font-size: 14px;
+  color: #334155;
+  margin-bottom: 8px;
+}
+
+.phase3b10d-payment-total-label {
+  font-size: 12px;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: .03em;
+}
+
+.phase3b10d-payment-total {
+  font-size: 24px;
+  color: #0f172a;
+  font-weight: 950;
+  margin: 2px 0 8px;
+}
+
+.phase3b10d-payment-note {
+  font-size: 13px;
+  line-height: 1.45;
+  color: #1e3a8a;
+  background: #dbeafe;
+  border-radius: 12px;
+  padding: 10px;
+}
+
+.phase3b10d-payment-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+
+.phase3b10d-payment-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: #2563eb;
+  color: #fff !important;
+  font-weight: 900;
+  padding: 8px 12px;
+  text-decoration: none;
+}
+
+.phase3b10d-payment-action.secondary {
+  background: #0f172a;
+}
+
+.phase3b10d-bank-list {
+  display: grid;
+  gap: 8px;
+  margin: 10px 0;
+}
+
+.phase3b10d-bank-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px;
+  border-radius: 12px;
+  background: #fff;
+  border: 1px solid #dbeafe;
+}
+
+.phase3b10d-bank-name {
+  color: #0f172a;
+  font-weight: 950;
+}
+
+.phase3b10d-bank-holder {
+  color: #64748b;
+  font-size: 12px;
+}
+
+.phase3b10d-bank-account {
+  font-weight: 950;
+  color: #1e3a8a;
+  text-align: right;
+}
+
+.phase3b10d-buyer-nav-active {
+  background: #16a34a !important;
+  color: #fff !important;
+  border-color: #16a34a !important;
+  box-shadow: 0 8px 24px rgba(22, 163, 74, .25);
+}
+
+[data-phase3b10d-force-inactive="true"] {
+  background: rgba(255,255,255,.16) !important;
+  color: inherit !important;
+  box-shadow: none !important;
+}
+
+@media (max-width: 720px) {
+  .phase3b10d-payment-instruction-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .phase3b10d-qris-preview {
+    max-height: 320px;
+  }
+
+  .phase3b10d-bank-row {
+    flex-direction: column;
+  }
+
+  .phase3b10d-bank-account {
+    text-align: left;
+  }
+}
+
+/* Phase 3B.10D-R2-R1 QRIS Preview Modal */
+.phase3b10d-qris-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100000;
+  background: rgba(15, 23, 42, 0.72);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+}
+
+.phase3b10d-qris-modal-card {
+  position: relative;
+  width: min(520px, 96vw);
+  max-height: 92vh;
+  overflow: auto;
+  background: #ffffff;
+  border-radius: 22px;
+  box-shadow: 0 30px 90px rgba(0, 0, 0, 0.35);
+  padding: 20px;
+  color: #0f172a;
+  font-weight: 800;
+}
+
+.phase3b10d-qris-modal-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  color: #0f172a;
+  font-weight: 950;
+  cursor: pointer;
+}
+
+.phase3b10d-qris-modal-title {
+  padding-right: 42px;
+  font-size: 22px;
+  font-weight: 950;
+  color: #0f172a;
+}
+
+.phase3b10d-qris-modal-subtitle {
+  margin-top: 4px;
+  color: #475569;
+  font-size: 14px;
+}
+
+.phase3b10d-qris-modal-image-wrap {
+  margin-top: 16px;
+  padding: 10px;
+  border-radius: 18px;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+}
+
+.phase3b10d-qris-modal-image {
+  display: block;
+  width: 100%;
+  max-height: 64vh;
+  object-fit: contain;
+  border-radius: 14px;
+  background: #fff;
+}
+
+.phase3b10d-qris-modal-note {
+  margin-top: 14px;
+  padding: 12px;
+  border-radius: 14px;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  color: #1e3a8a;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.phase3b10d-qris-modal-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.phase3b10d-qris-modal-action {
+  border: 0;
+  border-radius: 999px;
+  background: #2563eb;
+  color: #fff !important;
+  padding: 10px 14px;
+  text-decoration: none;
+  font-weight: 950;
+  cursor: pointer;
+}
+
+.phase3b10d-qris-modal-action.secondary {
+  background: #0f172a;
+}
+
+button.phase3b10d-payment-action {
+  border: 0;
+  cursor: pointer;
+}
+
+/* Phase 3B.10E-R1 Multi-Order Payment Basic */
+.phase3b10e-toolbar {
+  margin: 12px 0 16px;
+  padding: 14px;
+  border-radius: 16px;
+  border: 1px solid #bbf7d0;
+  background: #ecfdf5;
+  color: #0f172a;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  font-weight: 800;
+}
+
+.phase3b10e-toolbar-title {
+  color: #166534;
+  font-weight: 950;
+  font-size: 16px;
+}
+
+.phase3b10e-toolbar-subtitle {
+  color: #475569;
+  font-size: 13px;
+  margin-top: 3px;
+}
+
+.phase3b10e-toolbar-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.phase3b10e-toolbar-button {
+  border: 0;
+  border-radius: 999px;
+  background: #16a34a;
+  color: #fff;
+  padding: 9px 13px;
+  font-weight: 950;
+  cursor: pointer;
+}
+
+.phase3b10e-toolbar-button:disabled {
+  opacity: .45;
+  cursor: not-allowed;
+}
+
+.phase3b10e-toolbar-button.secondary {
+  background: #0f172a;
+}
+
+.phase3b10e-select-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 8px;
+  padding: 6px 9px;
+  border-radius: 999px;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  color: #1e3a8a;
+  font-size: 12px;
+  font-weight: 950;
+  cursor: pointer;
+}
+
+.phase3b10e-select-wrap input {
+  width: 16px;
+  height: 16px;
+}
+
+.phase3b10e-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100000;
+  background: rgba(15, 23, 42, 0.72);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+}
+
+.phase3b10e-modal-card {
+  position: relative;
+  width: min(680px, 96vw);
+  max-height: 92vh;
+  overflow: auto;
+  background: #fff;
+  border-radius: 22px;
+  box-shadow: 0 30px 90px rgba(0,0,0,.35);
+  padding: 20px;
+  color: #0f172a;
+  font-weight: 800;
+}
+
+.phase3b10e-modal-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  color: #0f172a;
+  font-weight: 950;
+  cursor: pointer;
+}
+
+.phase3b10e-modal-title {
+  font-size: 24px;
+  font-weight: 950;
+  padding-right: 44px;
+}
+
+.phase3b10e-modal-subtitle {
+  color: #475569;
+  margin-top: 4px;
+}
+
+.phase3b10e-summary-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.phase3b10e-summary-grid > div {
+  padding: 12px;
+  border-radius: 14px;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+}
+
+.phase3b10e-summary-label {
+  color: #64748b;
+  font-size: 12px;
+  text-transform: uppercase;
+}
+
+.phase3b10e-summary-value {
+  font-size: 24px;
+  font-weight: 950;
+}
+
+.phase3b10e-qris-box {
+  display: grid;
+  grid-template-columns: 170px 1fr;
+  gap: 14px;
+  margin-top: 14px;
+  padding: 12px;
+  border-radius: 16px;
+  border: 1px solid #bfdbfe;
+  background: #eff6ff;
+}
+
+.phase3b10e-qris-image {
+  width: 100%;
+  max-height: 220px;
+  object-fit: contain;
+  background: #fff;
+  border-radius: 12px;
+}
+
+.phase3b10e-qris-title {
+  color: #1e3a8a;
+  font-weight: 950;
+}
+
+.phase3b10e-qris-total {
+  margin-top: 6px;
+  font-size: 26px;
+  font-weight: 950;
+}
+
+.phase3b10e-qris-note {
+  margin-top: 8px;
+  padding: 10px;
+  border-radius: 12px;
+  background: #dbeafe;
+  color: #1e3a8a;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.phase3b10e-download,
+.phase3b10e-action {
+  margin-top: 10px;
+  border: 0;
+  border-radius: 999px;
+  background: #2563eb;
+  color: #fff;
+  padding: 9px 13px;
+  font-weight: 950;
+  cursor: pointer;
+}
+
+.phase3b10e-action.secondary {
+  background: #0f172a;
+}
+
+.phase3b10e-order-list {
+  display: grid;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.phase3b10e-order-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+}
+
+.phase3b10e-order-no {
+  font-weight: 950;
+}
+
+.phase3b10e-order-note {
+  color: #64748b;
+  font-size: 12px;
+}
+
+.phase3b10e-order-amount {
+  font-weight: 950;
+  text-align: right;
+}
+
+.phase3b10e-warning {
+  margin-top: 14px;
+  padding: 12px;
+  border-radius: 14px;
+  border: 1px solid #fde68a;
+  background: #fffbeb;
+  color: #92400e;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.phase3b10e-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 14px;
+}
+
+@media (max-width: 720px) {
+  .phase3b10e-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .phase3b10e-summary-grid,
+  .phase3b10e-qris-box {
+    grid-template-columns: 1fr;
+  }
+
+  .phase3b10e-order-row {
+    flex-direction: column;
+  }
+
+  .phase3b10e-order-amount {
+    text-align: left;
+  }
+}
+
+/* Phase 3B.10D-R3A Bank Transfer Account Selection */
+.phase3b10d-bank-select-box {
+  margin: 10px 0;
+  display: grid;
+  gap: 6px;
+}
+
+.phase3b10d-bank-select-label {
+  font-size: 12px;
+  color: #64748b;
+  font-weight: 950;
+  text-transform: uppercase;
+  letter-spacing: .03em;
+}
+
+.phase3b10d-bank-select {
+  width: 100%;
+  border: 1px solid #bfdbfe;
+  border-radius: 12px;
+  padding: 10px 12px;
+  font-weight: 900;
+  color: #0f172a;
+  background: #fff;
+}
+
+.phase3b10d-bank-selected-card {
+  margin: 10px 0;
+  padding: 12px;
+  border-radius: 14px;
+  background: #fff;
+  border: 1px solid #bfdbfe;
+}
+
+.phase3b10d-bank-name {
+  color: #0f172a;
+  font-size: 15px;
+  font-weight: 950;
+}
+
+.phase3b10d-bank-account {
+  margin-top: 3px;
+  color: #1e3a8a;
+  font-size: 18px;
+  font-weight: 950;
+  letter-spacing: .02em;
+}
+
+.phase3b10d-bank-holder,
+.phase3b10d-bank-note {
+  margin-top: 3px;
+  color: #475569;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+/* Phase 3B.10D-R3A-R1-Lite Payment Method Selector */
+.phase3b10d-method-selector-box {
+  margin: 0 0 12px;
+  padding: 10px;
+  border-radius: 14px;
+  background: #ffffff;
+  border: 1px solid #bfdbfe;
+  display: grid;
+  gap: 6px;
+}
+
+/* phase3b10d-r3a-r2-bank-panel-stable */
+.phase3b10d-payment-instruction-panel[data-phase3b10d-current-method="BANK_TRANSFER"] .phase3b10d-payment-instruction-grid,
+.phase3b10d-payment-instruction-panel[data-phase3b10d-current-method="BANK_TRANSFER"] .phase3b10d-qris-preview-wrap {
+  display: none !important;
+}
+
+.phase3b10d-payment-instruction-panel[data-phase3b10d-current-method="BANK_TRANSFER"] {
+  display: block !important;
+}
+
+.phase3b10d-payment-instruction-panel[data-phase3b10d-current-method="BANK_TRANSFER"] .phase3b10d-payment-instruction-body {
+  display: block !important;
+}
+
+.phase3b10d-payment-instruction-panel[data-phase3b10d-current-method="BANK_TRANSFER"] .phase3b10d-bank-selected-card {
+  display: block !important;
+  min-height: 0 !important;
+  margin: 10px 0 !important;
+  background: #ffffff !important;
+}
+
+.phase3b10d-payment-instruction-panel[data-phase3b10d-current-method="BANK_TRANSFER"] .phase3b10d-bank-selected-card:empty {
+  display: none !important;
+}
+
+.phase3b10d-payment-instruction-panel[data-phase3b10d-current-method="BANK_TRANSFER"] .phase3b10d-payment-actions {
+  margin-top: 10px !important;
+}
+
+/* Phase 3B.10D-R3B Payment Accounts Settings */
+.phase3b10d-payment-settings-panel {
+  width: min(1120px, calc(100vw - 32px));
+  margin: 18px auto 42px;
+  background: #ffffff;
+  border: 1px solid #dbe3ef;
+  border-radius: 22px;
+  padding: 18px;
+  box-shadow: 0 18px 46px rgba(15, 23, 42, 0.10);
+  color: #0f172a;
+  font-weight: 800;
+}
+
+.phase3b10d-payment-settings-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  align-items: flex-start;
+  margin-bottom: 14px;
+}
+
+.phase3b10d-payment-settings-header h2 {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 950;
+}
+
+.phase3b10d-payment-settings-header p {
+  margin: 4px 0 0;
+  color: #64748b;
+}
+
+.phase3b10d-payment-settings-header button,
+.phase3b10d-payment-settings-form button,
+.phase3b10d-payment-settings-actions button {
+  border: 0;
+  border-radius: 999px;
+  background: #16a34a;
+  color: #fff;
+  font-weight: 950;
+  padding: 10px 14px;
+  cursor: pointer;
+}
+
+.phase3b10d-payment-settings-actions button.danger {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.phase3b10d-payment-settings-notice {
+  margin: 10px 0;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  color: #1e3a8a;
+}
+
+.phase3b10d-payment-settings-summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(140px, 1fr));
+  gap: 10px;
+  margin: 12px 0;
+}
+
+.phase3b10d-payment-settings-summary > div {
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 12px;
+  background: #f8fafc;
+}
+
+.phase3b10d-payment-settings-summary b {
+  display: block;
+  font-size: 24px;
+}
+
+.phase3b10d-payment-settings-summary span {
+  color: #64748b;
+}
+
+.phase3b10d-payment-settings-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(180px, 1fr));
+  gap: 12px;
+  margin: 14px 0 18px;
+  padding: 14px;
+  border: 1px solid #e2e8f0;
+  border-radius: 18px;
+  background: #f8fafc;
+}
+
+.phase3b10d-payment-settings-form label {
+  display: grid;
+  gap: 6px;
+  font-size: 13px;
+  color: #475569;
+  font-weight: 950;
+}
+
+.phase3b10d-payment-settings-form input,
+.phase3b10d-payment-settings-form select {
+  border: 1px solid #cbd5e1;
+  border-radius: 12px;
+  padding: 10px 12px;
+  font-weight: 850;
+  color: #0f172a;
+  background: #fff;
+}
+
+.phase3b10d-payment-settings-check {
+  display: flex !important;
+  grid-template-columns: none !important;
+  align-items: center;
+  gap: 8px !important;
+}
+
+.phase3b10d-payment-settings-list {
+  display: grid;
+  gap: 10px;
+}
+
+.phase3b10d-payment-settings-card {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  background: #ffffff;
+  padding: 12px;
+}
+
+.phase3b10d-payment-settings-card-title {
+  font-size: 16px;
+  font-weight: 950;
+}
+
+.phase3b10d-payment-settings-card-meta,
+.phase3b10d-payment-settings-card-note {
+  color: #64748b;
+  font-size: 13px;
+  margin-top: 3px;
+}
+
+.phase3b10d-active {
+  color: #15803d;
+  margin-top: 5px;
+}
+
+.phase3b10d-inactive {
+  color: #991b1b;
+  margin-top: 5px;
+}
+
+.phase3b10d-payment-settings-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+@media (max-width: 760px) {
+  .phase3b10d-payment-settings-form,
+  .phase3b10d-payment-settings-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .phase3b10d-payment-settings-card {
+    flex-direction: column;
+  }
+}
+
+/* Phase 3B.10D-R3B-1-R1 Buyer Bank Transfer Runtime Fix */
+.phase3b10d-bank-runtime-panel {
+  margin: 12px 0;
+  padding: 12px;
+  border-radius: 16px;
+  border: 1px solid #bfdbfe;
+  background: #f8fbff;
+}
+
+.phase3b10d-bank-runtime-panel .phase3b10d-payment-instruction-title {
+  margin-bottom: 10px;
+}
+
+/* phase3b10d-r3b-1-r2-force-bank-panel */
+.phase3b10d-bank-runtime-panel {
+  margin: 12px 0;
+  padding: 12px;
+  border-radius: 16px;
+  border: 1px solid #bfdbfe;
+  background: #f8fbff;
+}
+
+.phase3b10d-bank-runtime-title {
+  display: block !important;
+  margin-bottom: 10px;
+}
+
+.phase3b10d-payment-instruction-panel[data-phase3b10d-current-method="BANK_TRANSFER"] > .phase3b10d-payment-instruction-title,
+.phase3b10d-payment-instruction-panel[data-phase3b10d-current-method="BANK_TRANSFER"] > .phase3b10d-payment-instruction-grid {
+  display: none !important;
+}
+
+.phase3b10d-payment-instruction-panel[data-phase3b10d-current-method="BANK_TRANSFER"] .phase3b10d-bank-runtime-panel .phase3b10d-payment-instruction-title {
+  display: block !important;
+}
+
+.phase3b10d-bank-runtime-panel .phase3b10d-bank-selected-card {
+  display: block !important;
+  background: #ffffff !important;
+}
+
+/* Phase 3B.10D-R3B-2 Clean Buyer Payment Integration */
+.phase3b10d-clean-payment-panel {
+  margin: 14px 0 18px;
+  padding: 14px;
+  border-radius: 18px;
+  border: 1px solid #bfdbfe;
+  background: #eff6ff;
+  color: #0f172a;
+  font-weight: 800;
+}
+
+.phase3b10d-clean-field {
+  display: grid;
+  gap: 6px;
+  font-size: 12px;
+  color: #64748b;
+  font-weight: 950;
+  text-transform: uppercase;
+  letter-spacing: .03em;
+}
+
+.phase3b10d-clean-field select {
+  border: 1px solid #bfdbfe;
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: #fff;
+  color: #0f172a;
+  font-weight: 900;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.phase3b10d-clean-qris-card {
+  display: grid;
+  grid-template-columns: 160px 1fr;
+  gap: 14px;
+  margin-top: 12px;
+  align-items: start;
+}
+
+.phase3b10d-clean-qris-image-box {
+  background: #fff;
+  border: 1px solid #dbeafe;
+  border-radius: 14px;
+  padding: 8px;
+}
+
+.phase3b10d-clean-qris-image-box img {
+  display: block;
+  width: 100%;
+  max-height: 220px;
+  object-fit: contain;
+  border-radius: 10px;
+}
+
+.phase3b10d-clean-payment-info h4,
+.phase3b10d-clean-bank-card h4 {
+  margin: 0 0 6px;
+  color: #1e3a8a;
+  font-size: 16px;
+  font-weight: 950;
+}
+
+.phase3b10d-clean-merchant {
+  color: #334155;
+  margin-bottom: 8px;
+}
+
+.phase3b10d-clean-total-label {
+  font-size: 12px;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: .03em;
+}
+
+.phase3b10d-clean-total {
+  font-size: 24px;
+  font-weight: 950;
+  color: #0f172a;
+  margin: 2px 0 8px;
+}
+
+.phase3b10d-clean-payment-info p,
+.phase3b10d-clean-bank-card p,
+.phase3b10d-clean-modal-note {
+  padding: 10px;
+  border-radius: 12px;
+  background: #dbeafe;
+  border: 1px solid #bfdbfe;
+  color: #1e3a8a;
+  line-height: 1.45;
+  font-size: 13px;
+}
+
+.phase3b10d-clean-bank-card {
+  margin-top: 12px;
+}
+
+.phase3b10d-clean-bank-detail {
+  margin: 10px 0;
+  padding: 12px;
+  border-radius: 14px;
+  background: #fff;
+  border: 1px solid #bfdbfe;
+}
+
+.phase3b10d-clean-bank-name {
+  font-weight: 950;
+  color: #0f172a;
+}
+
+.phase3b10d-clean-bank-number {
+  margin-top: 4px;
+  font-size: 20px;
+  color: #1e3a8a;
+  font-weight: 950;
+  letter-spacing: .02em;
+}
+
+.phase3b10d-clean-bank-holder,
+.phase3b10d-clean-bank-note {
+  margin-top: 3px;
+  color: #475569;
+  font-size: 13px;
+}
+
+.phase3b10d-clean-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.phase3b10d-clean-actions button {
+  border: 0;
+  border-radius: 999px;
+  background: #2563eb;
+  color: #fff;
+  font-weight: 950;
+  padding: 9px 13px;
+  cursor: pointer;
+}
+
+.phase3b10d-clean-actions button.secondary {
+  background: #0f172a;
+}
+
+.phase3b10d-clean-notice {
+  margin-top: 10px;
+  padding: 10px;
+  border-radius: 12px;
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  color: #9a3412;
+}
+
+.phase3b10d-clean-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 100000;
+  background: rgba(15, 23, 42, .72);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+}
+
+.phase3b10d-clean-modal-card {
+  position: relative;
+  width: min(520px, 96vw);
+  max-height: 92vh;
+  overflow: auto;
+  background: #fff;
+  border-radius: 22px;
+  padding: 20px;
+  box-shadow: 0 30px 90px rgba(0,0,0,.35);
+}
+
+.phase3b10d-clean-modal-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  font-weight: 950;
+  cursor: pointer;
+}
+
+.phase3b10d-clean-modal-card h3 {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 950;
+}
+
+.phase3b10d-clean-modal-card > p {
+  margin: 4px 0 12px;
+  color: #475569;
+}
+
+.phase3b10d-clean-modal-card img {
+  display: block;
+  width: 100%;
+  max-height: 64vh;
+  object-fit: contain;
+  border-radius: 14px;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+}
+
+@media (max-width: 720px) {
+  .phase3b10d-clean-qris-card {
+    grid-template-columns: 1fr;
+  }
+
+  .phase3b10d-clean-qris-image-box img {
+    max-height: 320px;
+  }
+}
