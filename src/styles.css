@@ -10847,3 +10847,47 @@ button.phase3b10d-payment-action {
     min-height: 0;
   }
 }
+
+/* phase3b10d-mobile-checkout-ongkir-inline-fix */
+@media (max-width: 820px) {
+  [data-phase3b10d-mobile-ongkir-original="hidden"] {
+    display: none !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+  }
+
+  .phase3b10d-mobile-ongkir-inline {
+    position: static !important;
+    inset: auto !important;
+    left: auto !important;
+    right: auto !important;
+    top: auto !important;
+    bottom: auto !important;
+    transform: none !important;
+    width: 100% !important;
+    max-width: none !important;
+    min-width: 0 !important;
+    height: auto !important;
+    max-height: none !important;
+    margin: 12px 0 16px !important;
+    overflow: visible !important;
+    z-index: auto !important;
+    box-shadow: none !important;
+  }
+
+  .phase3b10d-mobile-ongkir-inline * {
+    max-width: 100% !important;
+  }
+
+  .phase3b10d-mobile-ongkir-inline select,
+  .phase3b10d-mobile-ongkir-inline input,
+  .phase3b10d-mobile-ongkir-inline button {
+    max-width: 100% !important;
+  }
+}
+
+@media (min-width: 821px) {
+  [data-phase3b10d-mobile-ongkir-clone="true"] {
+    display: none !important;
+  }
+}
