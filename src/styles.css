@@ -10804,3 +10804,46 @@ button.phase3b10d-payment-action {
     max-height: 320px;
   }
 }
+
+/* phase3b10d-firefox-checkout-scroll-fix */
+@-moz-document url-prefix() {
+  body.phase3b10d-firefox-checkout-open {
+    overflow: hidden !important;
+  }
+
+  [data-phase3b10d-firefox-checkout-overlay="true"] {
+    align-items: flex-start !important;
+    justify-content: center !important;
+    overflow-y: auto !important;
+    max-height: 100dvh !important;
+    height: 100dvh !important;
+    padding-top: 10px !important;
+    padding-bottom: 10px !important;
+  }
+
+  [data-phase3b10d-firefox-checkout-modal="true"] {
+    max-height: calc(100dvh - 20px) !important;
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+    display: flex !important;
+    flex-direction: column !important;
+  }
+
+  [data-phase3b10d-firefox-checkout-scrollbody="true"] {
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    max-height: calc(100dvh - 110px) !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    padding-bottom: 120px !important;
+    scrollbar-width: thin !important;
+    overscroll-behavior: contain !important;
+  }
+
+  [data-phase3b10d-firefox-checkout-scrollbody="true"] textarea,
+  [data-phase3b10d-firefox-checkout-scrollbody="true"] input,
+  [data-phase3b10d-firefox-checkout-scrollbody="true"] select {
+    min-height: 0;
+  }
+}
