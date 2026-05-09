@@ -1,3 +1,4 @@
+import Phase3B10DStorePaymentAccountsSettings from "../components/Phase3B10DStorePaymentAccountsSettings";
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { StoreProfile } from "../types";
@@ -30,6 +31,7 @@ const emptyStore = {
 };
 
 export function StoreProfilePage() {
+  const [activeStoreProfileTab3B10D, setActiveStoreProfileTab3B10D] = useState<"profile" | "payment">("profile");
  const [form, setForm] = useState(emptyStore);
  
  const [storeProfileEditMode, setStoreProfileEditMode] = useState(false);
@@ -161,18 +163,36 @@ const [message, setMessage] = useState("");
  }
 
  return (
- <section className="panel store-profile-admin">
+ <section data-phase3b10d-store-profile-tab={activeStoreProfileTab3B10D} className="panel store-profile-admin">
  <div className="section-title">
  <div>
  <h1>Profil Toko</h1>
  <p>Kelola profil toko, logo, alamat, kontak, dan deskripsi yang terlihat di sisi buyer.</p>
+
+<div className="phase3b10d-store-profile-clean-tabs">
+  <button
+    type="button"
+    className={activeStoreProfileTab3B10D === "profile" ? "active" : ""}
+    onClick={() => setActiveStoreProfileTab3B10D("profile")}
+  >
+    Pengaturan Profil Toko
+  </button>
+
+  <button
+    type="button"
+    className={activeStoreProfileTab3B10D === "payment" ? "active" : ""}
+    onClick={() => setActiveStoreProfileTab3B10D("payment")}
+  >
+    Pengaturan Pembayaran Toko
+  </button>
+</div>
  </div>
  <button onClick={load}>Refresh</button>
  </div>
 
  {message && <div className="success-box">{message}</div>}
 
- <form onSubmit={save} className="profile-form" data-seller-profile-view-lock={!storeProfileEditMode ? "locked" : "edit"}>
+ <form data-phase3b10d-store-profile-form="true" onSubmit={save} className="profile-form" data-seller-profile-view-lock={!storeProfileEditMode ? "locked" : "edit"}>
  <div className="store-preview">
  <div className="store-logo-preview">
  <img src={form.logo_url || "https://placehold.co/120x120/111827/ffffff?text=UO"} alt="Logo toko" />
@@ -227,6 +247,10 @@ const [message, setMessage] = useState("");
  </button>
  )}
  </form>
+
+<div data-phase3b10d-store-payment-panel-host="true" className="phase3b10d-store-payment-panel-host">
+  <Phase3B10DStorePaymentAccountsSettings />
+</div>
  </section>
  );
 }

@@ -11412,3 +11412,111 @@ body.phase3b10d-checkout-open [data-phase="3b7w-rates-checkout-bridge"] {
     padding: 8px 9px;
   }
 }
+
+/* phase3b10d-store-profile-compact-tabs */
+.phase3b10d-seller-mobile-preview-overlay {
+  cursor: pointer;
+}
+
+.phase3b10d-seller-mobile-preview-panel {
+  cursor: default;
+}
+
+.phase3b10d-store-profile-compact-slot {
+  width: min(1120px, calc(100vw - 32px));
+  margin: 10px auto 12px;
+}
+
+.phase3b10d-store-profile-compact-controls {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(180px, 1fr));
+  gap: 10px;
+  padding: 10px;
+  border-radius: 18px;
+  background: #ffffff;
+  border: 1px solid #dbe3ef;
+  box-shadow: 0 12px 32px rgba(15, 23, 42, .08);
+}
+
+.phase3b10d-store-profile-compact-controls button {
+  border: 1px solid #cbd5e1;
+  border-radius: 14px;
+  background: #f8fafc;
+  color: #0f172a;
+  font-weight: 950;
+  padding: 12px 14px;
+  cursor: pointer;
+}
+
+.phase3b10d-store-profile-compact-controls button[data-active="true"] {
+  background: #0f172a;
+  border-color: #0f172a;
+  color: #ffffff;
+}
+
+[data-phase3b10d-store-profile-section="hidden"],
+[data-phase3b10d-store-payment-section="hidden"] {
+  display: none !important;
+}
+
+[data-phase3b10d-store-profile-section="active"],
+[data-phase3b10d-store-payment-section="active"] {
+  display: block !important;
+}
+
+@media (max-width: 720px) {
+  .phase3b10d-store-profile-compact-slot {
+    width: calc(100vw - 20px);
+    margin: 8px auto 10px;
+  }
+
+  .phase3b10d-store-profile-compact-controls {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Phase 3B.10D-R3B-9-R2 Clean Store Profile Tabs */
+.phase3b10d-store-profile-clean-tabs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(180px, 1fr));
+  gap: 10px;
+  margin: 14px 0 16px;
+  padding: 10px;
+  border-radius: 18px;
+  background: #f8fafc;
+  border: 1px solid #dbe3ef;
+}
+
+.phase3b10d-store-profile-clean-tabs button {
+  border: 1px solid #cbd5e1;
+  border-radius: 14px;
+  background: #ffffff;
+  color: #0f172a;
+  font-weight: 950;
+  padding: 12px 14px;
+  cursor: pointer;
+}
+
+.phase3b10d-store-profile-clean-tabs button.active {
+  background: #0f172a;
+  border-color: #0f172a;
+  color: #ffffff;
+}
+
+[data-phase3b10d-store-profile-tab="profile"] [data-phase3b10d-store-payment-panel-host="true"] {
+  display: none !important;
+}
+
+[data-phase3b10d-store-profile-tab="payment"] [data-phase3b10d-store-profile-form="true"] {
+  display: none !important;
+}
+
+.phase3b10d-store-payment-panel-host {
+  margin-top: 8px;
+}
+
+@media (max-width: 720px) {
+  .phase3b10d-store-profile-clean-tabs {
+    grid-template-columns: 1fr;
+  }
+}

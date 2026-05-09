@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { Smartphone, X, ExternalLink, RotateCcw } from "lucide-react";
 
@@ -174,7 +174,7 @@ export default function Phase3B10DSellerMobileBuyerPreview() {
       {sidebarSlot ? createPortal(triggerButton, sidebarSlot) : triggerButton}
 
       {open ? (
-        <div className="phase3b10d-seller-mobile-preview-overlay" role="dialog" aria-modal="true">
+        <div className="phase3b10d-seller-mobile-preview-overlay" role="dialog" aria-modal="true" onMouseDown={(event) => { if (event.target === event.currentTarget) setOpen(false); }}>
           <div className="phase3b10d-seller-mobile-preview-panel">
             <div className="phase3b10d-seller-mobile-preview-header">
               <div>
