@@ -11520,3 +11520,44 @@ body.phase3b10d-checkout-open [data-phase="3b7w-rates-checkout-bridge"] {
     grid-template-columns: 1fr;
   }
 }
+
+/* phase3b10d-cart-drawer-responsive-footer-polish */
+.phase3b10d-cart-clean-total-row {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 12px !important;
+  padding: 10px 0 6px !important;
+  border-top: 1px solid #e2e8f0 !important;
+  color: #0f172a !important;
+}
+
+.phase3b10d-cart-clean-total-row span,
+.phase3b10d-cart-clean-total-row strong {
+  font-weight: 950 !important;
+  font-size: 17px !important;
+}
+
+.phase3b10d-cart-checkout-note {
+  display: block !important;
+  margin-top: 4px !important;
+  color: #64748b !important;
+  font-size: 13px !important;
+  line-height: 1.35 !important;
+  font-weight: 800 !important;
+}
+
+@media (max-width: 720px) {
+  .phase3b10d-cart-clean-total-row {
+    padding-top: 9px !important;
+  }
+
+  .phase3b10d-cart-clean-total-row span,
+  .phase3b10d-cart-clean-total-row strong {
+    font-size: 16px !important;
+  }
+
+  .phase3b10d-cart-checkout-note {
+    font-size: 12px !important;
+  }
+}

@@ -1,5 +1,5 @@
 import { MessageCircle, Trash2, X } from "lucide-react";
-import { CartItem, cartShippingCost, cartSubtotal, cartWeight } from "../lib/cart";
+import { CartItem, cartSubtotal, cartWeight } from "../lib/cart";
 import { formatCurrency } from "../lib/utils";
 
 type Props = {
@@ -18,10 +18,7 @@ export function CartDrawer({ open, items, onClose, onUpdateQuantity, onRemove, o
 
  const subtotal = cartSubtotal(items);
  const weight = cartWeight(items);
- const shippingCost = cartShippingCost(items);
- const grandTotal = subtotal + shippingCost;
- const shippingLabel = items.find(item => item.shipping_name)?.shipping_name;
- const firstItem = items[0] || null;
+const firstItem = items[0] || null;
 
  return (
  <div className="cart-backdrop" onMouseDown={event => {
@@ -53,7 +50,6 @@ export function CartDrawer({ open, items, onClose, onUpdateQuantity, onRemove, o
  <div>
  <strong>{item.product_name}</strong>
  <span>{item.color_name || "-"} / {item.size_name || "-"} / {item.pattern_type || "-"}</span>
- <span>Ekspedisi: {item.shipping_name || "-"} {item.shipping_service ? `/ ${item.shipping_service}` : ""}</span>
  <em>{formatCurrency(item.unit_price)}</em>
  <div className="cart-qty-row">
  <button onClick={() => onUpdateQuantity(item.id, item.quantity - 1)} disabled={item.quantity <= 1}>−</button>
@@ -71,12 +67,13 @@ export function CartDrawer({ open, items, onClose, onUpdateQuantity, onRemove, o
  </button>
 
  <div className="cart-summary">
- <div><span>Subtotal</span><strong>{formatCurrency(subtotal)}</strong></div>
- <div><span>Ekspedisi</span><strong>{shippingLabel || "-"}</strong></div>
- <div><span>Ongkir</span><strong>{formatCurrency(shippingCost)}</strong></div>
- <div><span>Berat</span><strong>{weight} gram</strong></div>
- <div><span>Total</span><strong>{formatCurrency(grandTotal)}</strong></div>
- <small>Ongkir fase ini memakai tarif dasar ekspedisi yang dikelola seller.</small>
+ <div className="phase3b10d-cart-clean-total-row">
+  <span>Total</span>
+  <strong>{formatCurrency(subtotal)}</strong>
+</div>
+<small className="phase3b10d-cart-checkout-note">
+  Total pembayaran dengan penyesuaian Ongkir dapat dilihat setelah lanjut Checkout.
+</small>
  </div>
 
  <div className="cart-actions">
